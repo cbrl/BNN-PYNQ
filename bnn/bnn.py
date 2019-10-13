@@ -1,6 +1,6 @@
 #   Copyright (c) 2016, Xilinx, Inc.
 #   All rights reserved.
-# 
+#
 #   Redistribution and use in source and binary forms, with or without 
 #   modification, are permitted provided that the following conditions are met:
 #
@@ -45,7 +45,7 @@ NETWORK_LFCW1A2 = "lfcW1A2"
 
 if os.environ['BOARD'] == 'Ultra96':
 	PLATFORM="ultra96"
-elif os.environ['BOARD'] == 'Pynq-Z1' or os.environ['BOARD'] == 'Pynq-Z2':
+elif os.environ['BOARD'] == 'Pynq-Z1' or os.environ['BOARD'] == 'Pynq-Z2' or os.environ['BOARD'] == 'zybo-z7-20':
 	PLATFORM="pynqZ1-Z2"
 else:
 	raise RuntimeError("Board not supported")
@@ -61,6 +61,7 @@ _ffi.cdef("""
 void load_parameters(const char* path);
 int inference(const char* path, int results[64], int number_class, float *usecPerImage);
 int* inference_multiple(const char* path, int number_class, int *image_number, float *usecPerImage, int enable_detail);
+int* inference_multiple_with_faults(const char* path, int number_class, int *image_number, float *usecPerImage, unsigned int flip_count, int flip_word, int target, int* target_layers, unsigned int num_targets);
 void free_results(int * result);
 void deinit();
 """
@@ -144,6 +145,25 @@ class PynqBNN:
 		size_ptr = _ffi.new("int *")
 		usecperimage = _ffi.new("float *")
 		result_ptr = self.interface.inference_multiple(path.encode(), len(self.classes), size_ptr, usecperimage,0)
+		result_buffer = _ffi.buffer(result_ptr, size_ptr[0] * 4)
+		print("Inference took %.2f microseconds, %.2f usec per image" % (usecperimage[0]*size_ptr[0],usecperimage[0]))
+		result_array = np.copy(np.frombuffer(result_buffer, dtype=np.int32))
+		print("Classification rate: %.2f images per second" % (1000000.0/usecperimage[0]))
+		self.interface.free_results(result_ptr)
+		self.usecPerImage = usecperimage[0]
+		return result_array
+
+	# starts inference on multiple images, output is vector containing inferred class of each image
+	def inference_multiple_with_faults(self, path, num_faults, flip_word, target, target_layers=[]):
+		targets = []
+		if len(target_layers) == 0:
+			targets = _ffi.cast("void *", 0)
+		else:
+			targets = _ffi.from_buffer(np.array(target_layers, dtype=np.int))
+
+		size_ptr = _ffi.new("int *")
+		usecperimage = _ffi.new("float *")
+		result_ptr = self.interface.inference_multiple_with_faults(path.encode(), len(self.classes), size_ptr, usecperimage, num_faults, 1 if flip_word else 0, target, targets, len(target_layers))
 		result_buffer = _ffi.buffer(result_ptr, size_ptr[0] * 4)
 		print("Inference took %.2f microseconds, %.2f usec per image" % (usecperimage[0]*size_ptr[0],usecperimage[0]))
 		result_array = np.copy(np.frombuffer(result_buffer, dtype=np.int32))
@@ -253,7 +273,13 @@ class CnvClassifier:
 	def classify_cifars(self, path):
 		result = self.bnn.inference_multiple(path)
 		self.usecPerImage = self.bnn.usecPerImage
-		return result	
+		return result
+
+	# classify multiple cifar10 preformatted pictures, output is inferred class
+	def classify_cifars_with_faults(self, path, num_faults, flip_word, target, target_layers=[]):
+		result = self.bnn.inference_multiple_with_faults(path, num_faults, flip_word, target, target_layers)
+		self.usecPerImage = self.bnn.usecPerImage
+		return result
 
 	# multiple detailed inference returns a flatten 1 dimensional vector with each ranking for each class, image by image
 	# .. for regular images
@@ -304,6 +330,11 @@ class LfcClassifier:
 	# classify multiple mnist formatted image, output is vector of inferred classes
 	def classify_mnists(self, mnist_format_file):
 		result = self.bnn.inference_multiple(mnist_format_file)
+		self.usecPerImage = self.bnn.usecPerImage
+		return result
+
+	def classify_mnists_with_faults(self, mnist_format_file, num_faults, flip_word, target_type, target_layers=[]):
+		result = self.bnn.inference_multiple_with_faults(mnist_format_file, num_faults, flip_word, target_type, target_layers)
 		self.usecPerImage = self.bnn.usecPerImage
 		return result
 

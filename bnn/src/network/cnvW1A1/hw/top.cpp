@@ -134,6 +134,49 @@ void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int ta
   }
 }
 
+ap_uint<64> DoMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh) {
+  switch (targetLayer) {
+    case 0:
+      return weights0.m_weights[targetMem][targetInd];
+    case 1:
+      return static_cast< ap_uint<64> >(threshs0.m_thresholds[targetMem][targetInd][targetThresh]);
+    case 2:
+      return weights1.m_weights[targetMem][targetInd];
+    case 3:
+      return threshs1.m_thresholds[targetMem][targetInd][targetThresh];
+    case 4:
+      return weights2.m_weights[targetMem][targetInd];
+    case 5:
+      return threshs2.m_thresholds[targetMem][targetInd][targetThresh];
+    case 6:
+      return weights3.m_weights[targetMem][targetInd];
+    case 7:
+      return threshs3.m_thresholds[targetMem][targetInd][targetThresh];
+    case 8:
+      return weights4.m_weights[targetMem][targetInd];
+    case 9:
+      return threshs4.m_thresholds[targetMem][targetInd][targetThresh];
+    case 10:
+      return weights5.m_weights[targetMem][targetInd];
+    case 11:
+      return threshs5.m_thresholds[targetMem][targetInd][targetThresh];
+    case 12:
+      return weights6.m_weights[targetMem][targetInd];
+    case 13:
+      return threshs6.m_thresholds[targetMem][targetInd][targetThresh];
+    case 14:
+      return weights7.m_weights[targetMem][targetInd];
+    case 15:
+      return threshs7.m_thresholds[targetMem][targetInd][targetThresh];
+    case 16:
+      return weights8.m_weights[targetMem][targetInd];
+    case 17:
+	  // do nothing, no thres mem for layer 8 as PassThrough activation is used
+      return ap_uint<64>(0);
+  }
+  return ap_uint<64>(0);
+}
+
 void DoCompute(ap_uint<64> *in, ap_uint<64>* out, const unsigned int numReps) {
 #pragma HLS DATAFLOW
   stream<ap_uint<64>> inter0("DoCompute.inter0");
@@ -192,7 +235,7 @@ void DoCompute(ap_uint<64> *in, ap_uint<64>* out, const unsigned int numReps) {
   Stream2Mem_Batch<64, outBits/8>(memOutStrm, out, numReps);
 }
 
-void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, bool doInit,
+void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, unsigned int doInit,
 		unsigned int targetLayer, unsigned int targetMem,
 		unsigned int targetInd, unsigned int targetThresh, ap_uint<64> val, unsigned int numReps) {
 // pragmas for MLBP jam interface
@@ -238,8 +281,10 @@ void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, bool doInit,
 #pragma HLS ARRAY_PARTITION variable=threshs7.m_thresholds complete dim=3
 #pragma HLS ARRAY_PARTITION variable=weights8.m_weights complete dim=1
 
-  if (doInit) {
+  if (doInit == 1) {
     DoMemInit(targetLayer, targetMem, targetInd, targetThresh, val);
+  } else if (doInit == 2) {
+    *out = DoMemRead(targetLayer, targetMem, targetInd, targetThresh);
   } else {
     DoCompute(in, out, numReps);
   }

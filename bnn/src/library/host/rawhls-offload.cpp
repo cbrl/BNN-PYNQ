@@ -73,15 +73,24 @@ void FoldedMVDeinit() {
   bufOut = 0;
 }
 
+ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd,unsigned int targetThresh) {
+  uint64_t* val = new uint64_t;
+  // call the accelerator in weight read mode
+  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)val, 2, targetLayer, targetMem, targetInd,targetThresh, 0, 0);
+  uint64_t out = *val;
+  delete val;
+  return out;
+}
+
 void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd,unsigned int targetThresh, ExtMemWord val) {
   // call the accelerator in weight init mode
-  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, true, targetLayer, targetMem, targetInd,targetThresh, val, 0);
+  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, 1, targetLayer, targetMem, targetInd,targetThresh, val, 0);
 }
 
 // TODO implement batch execution version
 void FoldedMVOffloadBinarized(const ExtMemWord * in, ExtMemWord * out, const unsigned int inBufWords, const unsigned int outBufWords, const unsigned int numImages) {
   // call the accelerator in compute mode
-  BlackBoxJam((ap_uint<64> *)in, (ap_uint<64> *)out, false, 0, 0, 0, 0, 0, numImages);
+  BlackBoxJam((ap_uint<64> *)in, (ap_uint<64> *)out, 0, 0, 0, 0, 0, 0, numImages);
 }
 
 #endif

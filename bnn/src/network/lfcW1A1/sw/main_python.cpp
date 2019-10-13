@@ -46,7 +46,9 @@
 #include <string.h>
 #include <chrono>
 #include "foldedmv-offload.h"
+#include <random>
 #include <algorithm>
+#include "layers.h"
 
 using namespace std;
 using namespace tiny_cnn;
@@ -70,6 +72,43 @@ extern "C" void load_parameters(const char* path) {
   FoldedMVLoadLayerMem(path, 1, L1_PE, L1_WMEM, L1_TMEM, L1_API);
   FoldedMVLoadLayerMem(path, 2, L2_PE, L2_WMEM, L2_TMEM, L2_API);
   FoldedMVLoadLayerMem(path, 3, L3_PE, L3_WMEM, L3_TMEM, L3_API);
+}
+
+void random_fault(
+	bool flip_word = false,
+	int target_type = -1,
+	int *target_layers = nullptr,
+	unsigned int num_layers = 0
+) {
+#include "config.h"
+
+	const layer_data layers = {
+		{L0_PE,   L1_PE,   L2_PE,   L3_PE},
+		{L0_WMEM, L1_WMEM, L2_WMEM, L3_WMEM},
+		{L0_TMEM, L1_TMEM, L2_TMEM, L3_TMEM},
+		{L0_SIMD, L1_SIMD, L2_SIMD, L3_SIMD},
+		{L0_API,  L1_API,  L2_API,  L3_API},
+		{L0_WPI,  L1_WPI,  L2_WPI,  L3_WPI},
+		{16,      16,      16,      16}
+	}
+
+	std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> selection;
+	if (target_layers) {
+		std::vector<uint32_t> target_layers_vec(target_layers, target_layers + num_layers);
+		selection = random_selection(layers, target_type, target_layers_vec);
+	}
+	else {
+		selection = random_selection(layers, target_type);
+	}
+
+	inject_fault(
+		std::get<0>(selection),
+		std::get<1>(selection),
+		std::get<2>(selection),
+		std::get<3>(selection),
+		std::get<4>(selection),
+		flip_word
+	);
 }
 
 extern "C" int inference(const char* path, int results[64], int number_class, float *usecPerImage) {
@@ -105,6 +144,70 @@ extern "C" int* inference_multiple(const char* path, int number_class, int *imag
   makeNetwork(nn);	
   parse_mnist_images(path, &test_images, -1.0, 1.0, 0, 0);
   all_result=testPrebinarized_nolabel_multiple_images(test_images, number_class, usecPerImage_int);
+
+  result = new int [all_result.size()];
+  std::copy(all_result.begin(),all_result.end(), result);	
+  if (image_number) {
+    *image_number = all_result.size();
+  }
+  if (usecPerImage) {
+    *usecPerImage = usecPerImage_int;
+  }
+  return result;
+}
+
+extern "C" int* inference_multiple_with_faults(
+	const char* path,
+	int number_class,
+	int *image_number,
+	float *usecPerImage,
+	unsigned int flip_count,
+	int flip_word = 0,
+	int target_type = -1,
+	int *target_layers = nullptr,
+	unsigned int num_layers = 0
+) {
+
+  std::vector<vec_t> test_images;
+  std::vector<int> all_result;
+  float usecPerImage_int;
+  int* result;
+
+  FoldedMVInit("lfcW1A1-pynq");
+  network<mse, adagrad> nn;
+  makeNetwork(nn);	
+  parse_mnist_images(path, &test_images, -1.0, 1.0, 0, 0);
+
+	// Random device/generator
+	std::random_device rd;
+	std::mt19937 gen{rd()};
+
+	// Used to determine what time in the process to inject a fault
+	std::uniform_int_distribution<size_t> loop_dist{0, test_images.size() - 1};
+
+	// Generate fault times
+	std::vector<size_t> fault_indices;
+	for (unsigned int i = 0; i < flip_count; ++i) {
+		fault_indices.push_back(loop_dist(gen));
+	}
+
+	std::vector<vec_t> single_img;
+	// Process images and inject faults
+	for (size_t i = 0; i < test_images.size(); ++i) {
+		single_img.clear();
+		single_img.push_back(test_images[i]);
+
+		// Inject a fault
+		if (std::find(fault_indices.begin(), fault_indices.end(), i) != fault_indices.end()) {
+			random_fault(flip_word != 0, target_type, target_layers, num_layers);
+		}
+
+		// Classify next image
+		const std::vector<int> class_result = testPrebinarized_nolabel_multiple_images(single_img, number_class, usecPerImage_int);
+		for (const auto result : class_result) {
+			all_result.push_back(result);
+		}
+	}
 
   result = new int [all_result.size()];
   std::copy(all_result.begin(),all_result.end(), result);	

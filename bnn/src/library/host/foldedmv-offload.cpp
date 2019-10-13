@@ -347,8 +347,7 @@ ExtMemWord *bufIn, *bufOut;
  *         bit 31~0 - out_V[63:32] (Read/Write)
  * 0x24: reserved
  * 0x28: Data signal of doInit
- *         bit 0  - doInit[0] (Read/Write)
- *         others - reserved
+ *         bit 31~0 - doInit[31:0] (Read/Write)
  * 0x2c: reserved
  * 0x30: Data signal of targetLayer
  *         bit 31~0 - targetLayer[31:0] (Read/Write)
@@ -379,6 +378,30 @@ void ExecAccel() {
   // invoke accelerator and wait for result
   thePlatform->writeJamRegAddr(0x00, 1);
   while((thePlatform->readJamRegAddr(0x00) & 0x2) == 0);
+}
+
+ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh) {
+  uint64_t* val = thePlatform->allocAccelBuffer(8);
+  uint64_t old_out = thePlatform->read64BitJamRegAddr(0x1c);
+
+  // enable weight reading mode
+  thePlatform->writeJamRegAddr(0x28, 2);
+  // set up init data
+  thePlatform->writeJamRegAddr(0x30, targetLayer);
+  thePlatform->writeJamRegAddr(0x38, targetMem);
+  thePlatform->writeJamRegAddr(0x40, targetInd);
+  thePlatform->writeJamRegAddr(0x48, targetThresh);
+  thePlatform->write64BitJamRegAddr(0x1c, (AccelDblReg) val);
+  // do read
+  ExecAccel();
+  // disable weight reading mode
+  thePlatform->writeJamRegAddr(0x28, 0);
+  thePlatform->write64BitJamRegAddr(0x1c, (AccelDblReg) old_out);
+
+  uint64_t output = 0;
+  thePlatform->copyBufferAccelToHost(val, &output, 8);
+  thePlatform->deallocAccelBuffer(val);
+  return output;
 }
 
 // TODO this variant always assumes an 8 byte val port on the accelerator

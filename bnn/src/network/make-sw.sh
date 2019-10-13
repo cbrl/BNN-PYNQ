@@ -79,7 +79,7 @@ else
 fi
 cd $OLD_DIR
 
-if [[ ("$BOARD" == "Pynq-Z1") || ("$BOARD" == "Pynq-Z2") ]]; then
+if [[ ("$BOARD" == "Pynq-Z1") || ("$BOARD" == "Pynq-Z2") || ("$BOARD" == "zybo-z7-20") ]]; then
   DEF_BOARD="PYNQ"
   PLATFORM="pynqZ1-Z2"  
 elif [[ ("$BOARD" == "Ultra96") ]]; then
