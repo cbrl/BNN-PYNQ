@@ -90,7 +90,7 @@ uint32_t random_activation_layer(const layer_data& layers, const std::vector<uin
 }
 
 
-uint32_t random_weight_layer(const layer_data& layers, const std::mt19937& gen) {
+uint32_t random_weight_layer(const layer_data& layers, std::mt19937& gen) {
 	std::discrete_distribution<uint32_t> weight_layer_dist{
 		std::begin(layers.weight_bit_sizes), std::end(layers.weight_bit_sizes)
 	};

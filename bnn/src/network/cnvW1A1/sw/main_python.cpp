@@ -97,7 +97,7 @@ void random_fault(
 		{L0_API,  L1_API,  L2_API,  L3_API,  L4_API,  L5_API,  L6_API,  L7_API,  L8_API},
 		{L0_WPI,  L1_WPI,  L2_WPI,  L3_WPI,  L4_WPI,  L5_WPI,  L6_WPI,  L7_WPI,  L8_WPI},
 		{24,      16,      16,      16,      16,      16,      16,      16}
-	}
+	};
 
 	std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> selection;
 	if (target_layers) {
