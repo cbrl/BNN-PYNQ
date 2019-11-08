@@ -275,7 +275,7 @@ void testPrebinarized(std::vector<vec_t> & imgs, std::vector<label_t> & labels, 
   delete[] binLabels;
 }
 
-void FoldedMVLoadLayerMem(std::string dir, unsigned int layerNo, unsigned int peCount, unsigned int linesWMem, unsigned int linesTMem, unsigned int cntThresh) {
+void FoldedMVLoadLayerMem(std::string dir, unsigned int layerNo, unsigned int peCount, unsigned int linesWMem, unsigned int linesTMem, unsigned int cntThresh, unsigned int numModules) {
   for(unsigned int pe = 0; pe < peCount; pe++) {
     // load weights
     ifstream wf(dir + "/" + to_string(layerNo) + "-" + to_string(pe) + "-weights.bin", ios::binary | ios::in);
@@ -285,7 +285,15 @@ void FoldedMVLoadLayerMem(std::string dir, unsigned int layerNo, unsigned int pe
     for(unsigned int line = 0 ; line < linesWMem; line++) {
       ExtMemWord e = 0;
       wf.read((char *)&e, sizeof(ExtMemWord));
-      FoldedMVMemSet(layerNo * 2, pe, line, 0, e);
+
+      if (numModules > 0) { //write data for each module (used in triple-module redundancy version)
+        for (unsigned int module = 0; module < numModules; module++) {
+          FoldedMVMemSet(layerNo * 2, pe, line, 0, e, module);
+        }
+      }
+      else {
+        FoldedMVMemSet(layerNo * 2, pe, line, 0, e);
+      }
     }
     wf.close();
 
@@ -298,7 +306,15 @@ void FoldedMVLoadLayerMem(std::string dir, unsigned int layerNo, unsigned int pe
         for(unsigned int i = 0; i < cntThresh; i++){
     	  ExtMemWord e = 0;
           tf.read((char *)&e, sizeof(ExtMemWord));
-          FoldedMVMemSet(layerNo * 2 + 1, pe, line,i, e);
+
+          if (numModules > 0) {
+            for (unsigned int module = 0; module < numModules; module++) {
+              FoldedMVMemSet(layerNo * 2 + 1, pe, line,i, e, module);
+            }
+          }
+          else {
+            FoldedMVMemSet(layerNo * 2 + 1, pe, line,i, e);
+          }
         }
       }
       tf.close();
@@ -380,7 +396,7 @@ void ExecAccel() {
   while((thePlatform->readJamRegAddr(0x00) & 0x2) == 0);
 }
 
-ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh) {
+ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int targetModule) {
   uint64_t* val = thePlatform->allocAccelBuffer(8);
   uint64_t old_out = thePlatform->read64BitJamRegAddr(0x1c);
 
@@ -392,6 +408,9 @@ ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, uns
   thePlatform->writeJamRegAddr(0x40, targetInd);
   thePlatform->writeJamRegAddr(0x48, targetThresh);
   thePlatform->write64BitJamRegAddr(0x1c, (AccelDblReg) val);
+  if (targetModule >= 0) { //used with tripe-module redundancy network
+    thePlatform->writeJamRegAddr(0x58, targetModule);
+  }
   // do read
   ExecAccel();
   // disable weight reading mode
@@ -405,7 +424,7 @@ ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, uns
 }
 
 // TODO this variant always assumes an 8 byte val port on the accelerator
-void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, ExtMemWord val) {
+void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, ExtMemWord val, unsigned int targetModule) {
   // enable weight loading mode
   thePlatform->writeJamRegAddr(0x28, 1);
   // set up init data
@@ -414,6 +433,9 @@ void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned i
   thePlatform->writeJamRegAddr(0x40, targetInd);
   thePlatform->writeJamRegAddr(0x48, targetThresh);
   thePlatform->write64BitJamRegAddr(0x50, (AccelDblReg) val);
+  if (targetModule >= 0) { //used with tripe-module redundancy network
+    thePlatform->writeJamRegAddr(0x58, targetModule);
+  }
   // do write
   ExecAccel();
   // disable weight loading mode

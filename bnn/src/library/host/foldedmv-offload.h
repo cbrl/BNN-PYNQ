@@ -76,18 +76,21 @@ void FoldedMVLoadLayerMem(std::string dir,
 						  unsigned int layerNo, 
 						  unsigned int linesWMem, 
 						  unsigned int linesTMem, 
-						  unsigned int numThresh);
+						  unsigned int numThresh,
+              unsigned int numModules = 0);
 
 ExtMemWord FoldedMVMemRead(unsigned int targetLayer, 
                            unsigned int targetMem, 
 					unsigned int targetInd, 
-					unsigned int targetThresh);
+					unsigned int targetThresh,
+          unsigned int targetModule = -1);
 
 void FoldedMVMemSet(unsigned int targetLayer, 
                     unsigned int targetMem, 
 					unsigned int targetInd, 
 					unsigned int targetThresh, 
-					ExtMemWord val);
+					ExtMemWord val,
+          unsigned int targetModule = -1);
 
 std::vector<int> testPrebinarized_nolabel_multiple_images(std::vector<tiny_cnn::vec_t> & imgs, 
                                                           const unsigned int labelBits, 
@@ -136,17 +139,28 @@ void quantiseAndPack(const tiny_cnn::vec_t & in, ExtMemWord * out, unsigned int 
   }
 }
 
-inline void inject_fault(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int bit_pos, bool word) {
-  uint64_t val = FoldedMVMemRead(targetLayer, targetMem, targetInd, targetThresh);
+inline void inject_fault(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int bit_pos, bool word, unsigned int targetModule = -1) {
+  uint64_t val;
+  if (targetModule > 0) {
+    val = FoldedMVMemRead(targetLayer, targetMem, targetInd, targetThresh, targetModule);
+  }
+  else {
+    val = FoldedMVMemRead(targetLayer, targetMem, targetInd, targetThresh);
+  }
 
   if (word) {
-    val ^= (uint8_t{-1} << bit_pos);
+    val ^= (uint64_t{0xFF} << bit_pos);
   }
   else {
     val ^= (uint64_t{1} << bit_pos);
   }
 
-  FoldedMVMemSet(targetLayer, targetMem, targetInd, targetThresh, val);
+  if (targetModule > 0) {
+    FoldedMVMemSet(targetLayer, targetMem, targetInd, targetThresh, val, targetModule);
+  }
+  else {
+    FoldedMVMemSet(targetLayer, targetMem, targetInd, targetThresh, val);
+  }
 }
 
 
@@ -154,7 +168,7 @@ inline void inject_fault(unsigned int targetLayer, unsigned int targetMem, unsig
 
 #include "bnn-library.h"
 
-void BlackBoxJam(ap_uint<64> * in, ap_uint<64> * out, unsigned int doInit, unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, ap_uint<64> val, unsigned int numReps);
+void BlackBoxJam(ap_uint<64> * in, ap_uint<64> * out, unsigned int doInit, unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, ap_uint<64> val, unsigned int numReps, unsigned int targetModule);
 
 extern ExtMemWord * bufIn, * bufOut;
 
@@ -164,7 +178,7 @@ void FoldedMVOffload(const tiny_cnn::vec_t &in, tiny_cnn::vec_t & out, unsigned 
   binarizeAndPack(in, bufIn);
 
   // call the accelerator in compute mode
-  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, 0, 0, 0, 0, 0, 0, 1);
+  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, 0, 0, 0, 0, 0, 0, 1, -1);
 
   // unpack output bits and convert output back to float
   if(offloadID == 0xdeadbeef) {
@@ -180,7 +194,7 @@ void FixedFoldedMVOffload(const tiny_cnn::vec_t &in, tiny_cnn::vec_t &out, unsig
   quantiseAndPack<inWidth, SIMDWidth>(in, bufIn);
 
   // call the accelerator in compute mode
-  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, 0, 0, 0, 0, 0, 0, 1);
+  BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, 0, 0, 0, 0, 0, 0, 1, -1);
 
   // unpack output bits and convert output back to float
   if(offloadID == 0xdeadbeef) {
@@ -218,7 +232,7 @@ void testPrebuiltCIFAR10(std::vector<tiny_cnn::vec_t> & imgs, std::vector<tiny_c
   cout << "Running prebuilt CIFAR-10 test for " << count << " images..." << endl;
   auto t1 = chrono::high_resolution_clock::now();
   // call the accelerator in compute mode
-  BlackBoxJam((ap_uint<64> *)packedImages, (ap_uint<64> *)packedOut, 0, 0, 0, 0, 0,0, count);
+  BlackBoxJam((ap_uint<64> *)packedImages, (ap_uint<64> *)packedOut, 0, 0, 0, 0, 0,0, count, -1);
   auto t2 = chrono::high_resolution_clock::now();
   // compare against labels
   unsigned int ok = 0, failed = 0;
@@ -277,7 +291,7 @@ std::vector<int>  testPrebuiltCIFAR10_from_image(std::vector<tiny_cnn::vec_t> & 
 
   auto t1 = chrono::high_resolution_clock::now();
   // call the accelerator in compute mode
-  BlackBoxJam((ap_uint<64> *)packedImages, (ap_uint<64> *)packedOut, 0, 0, 0, 0, 0, 0, count);
+  BlackBoxJam((ap_uint<64> *)packedImages, (ap_uint<64> *)packedOut, 0, 0, 0, 0, 0, 0, count, -1);
   auto t2 = chrono::high_resolution_clock::now();
 
   // compare against labels
@@ -324,7 +338,7 @@ std::vector<int> testPrebuiltCIFAR10_multiple_images(std::vector<tiny_cnn::vec_t
   // copy inputs to accelerator
   auto t1 = chrono::high_resolution_clock::now();
   // call the accelerator in compute mode
-  BlackBoxJam((ap_uint<64> *)packedImages, (ap_uint<64> *)packedOut, 0, 0, 0, 0, 0, 0, count);
+  BlackBoxJam((ap_uint<64> *)packedImages, (ap_uint<64> *)packedOut, 0, 0, 0, 0, 0, 0, count, -1);
   auto t2 = chrono::high_resolution_clock::now();
   // compare against labels
   tiny_cnn::vec_t outTest(numCategories, 0);

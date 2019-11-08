@@ -75,8 +75,8 @@ set_part $config_proj_part
 config_interface -m_axi_addr64
 
 # syntesize and export
-create_clock -period $config_clkperiod -name default
-csim_design -argv "$directory_params $test_image 10 $expected_result" -compiler clang
+#create_clock -period $config_clkperiod -name default
+#csim_design -argv "$directory_params $test_image 10 $expected_result" -compiler clang
 csynth_design
 export_design -format ip_catalog
 exit 0
