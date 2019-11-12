@@ -83,6 +83,8 @@ void random_fault(
 #include "config.h"
 
 	const layer_data layers = {
+    {1,       1,       1,       1},
+    {1,       1,       1,       1},
 		{L0_PE,   L1_PE,   L2_PE,   L3_PE},
 		{L0_WMEM, L1_WMEM, L2_WMEM, L3_WMEM},
 		{L0_TMEM, L1_TMEM, L2_TMEM, L3_TMEM},

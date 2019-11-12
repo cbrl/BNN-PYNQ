@@ -8,6 +8,8 @@
 
 struct layer_data {
 	layer_data(
+		std::initializer_list<uint32_t> weight_modules,
+		std::initializer_list<uint32_t> activation_modules,
 		std::initializer_list<uint32_t> PE,
 		std::initializer_list<uint32_t> WMEM,
 		std::initializer_list<uint32_t> TMEM,
@@ -16,7 +18,9 @@ struct layer_data {
 		std::initializer_list<uint32_t> WPI,
 		std::initializer_list<uint32_t> activation_element_bits
 	)
-	: PE(PE)
+	: weight_modules(weight_modules)
+	, activation_modules(activation_modules)
+	, PE(PE)
 	, WMEM(WMEM)
 	, TMEM(TMEM)
 	, SIMD(SIMD)
@@ -24,10 +28,10 @@ struct layer_data {
 	, WPI(WPI)
 	, activation_element_bits(activation_element_bits) {
 		for (size_t i = 0; i < WPI.size(); ++i) {
-			weight_bit_sizes.push_back(this->WPI[i] * this->SIMD[i] * this->PE[i] * this->WMEM[i]);
+			weight_bit_sizes.push_back(this->weight_modules[i] * this->WPI[i] * this->SIMD[i] * this->PE[i] * this->WMEM[i]);
 		}
 		for (size_t i = 0; i < activation_element_bits.size(); ++i) {
-			activation_bit_sizes.push_back(this->TMEM[i] * this->PE[i] * this->API[i] * this->activation_element_bits[i]);
+			activation_bit_sizes.push_back(this->activation_modules[i] * this->TMEM[i] * this->PE[i] * this->API[i] * this->activation_element_bits[i]);
 		}
 	}
 
@@ -57,6 +61,8 @@ struct layer_data {
 		return bits;
 	}
 
+	std::vector<uint32_t> weight_modules;
+	std::vector<uint32_t> activation_modules;
 	std::vector<uint32_t> PE;
 	std::vector<uint32_t> WMEM;
 	std::vector<uint32_t> TMEM;
@@ -69,45 +75,23 @@ struct layer_data {
 };
 
 
-uint32_t random_activation_layer(const layer_data& layers, std::mt19937& gen) {
-	std::discrete_distribution<uint32_t> activation_layer_dist{
-		std::begin(layers.activation_bit_sizes), std::end(layers.activation_bit_sizes)
+
+uint32_t random_weighted_selection(const std::vector<uint32_t>& weights, std::mt19937& gen) {
+	std::discrete_distribution<uint32_t> weighted_dist{
+		std::begin(weights), std::end(weights)
 	};
-	return activation_layer_dist(gen);
+	return weighted_dist(gen);
 }
 
-uint32_t random_activation_layer(const layer_data& layers, const std::vector<uint32_t>& target_layers, std::mt19937& gen) {
-	std::vector<uint32_t> activation_sizes;
-	for (const auto& layer : target_layers) {
-		activation_sizes.push_back(layers.activation_bit_sizes[layer]);
+uint32_t random_weighted_selection(const std::vector<uint32_t>& weights, const std::vector<uint32_t>& indices, std::mt19937& gen) {
+	std::vector<uint32_t> filtered_weights;
+	for (const auto& index : indices) {
+		filtered_weights.push_back(weights[index]);
 	}
 
-	std::discrete_distribution<uint32_t> activation_layer_dist{
-		std::begin(activation_sizes), std::end(activation_sizes)
-	};
-
-	return target_layers[activation_layer_dist(gen)];
+	std::discrete_distribution<uint32_t> weighted_dist{std::begin(filtered_weights), std::end(filtered_weights)};
+	return indices[weighted_dist(gen)];
 }
-
-
-uint32_t random_weight_layer(const layer_data& layers, std::mt19937& gen) {
-	std::discrete_distribution<uint32_t> weight_layer_dist{
-		std::begin(layers.weight_bit_sizes), std::end(layers.weight_bit_sizes)
-	};
-
-	return weight_layer_dist(gen);
-}
-
-uint32_t random_weight_layer(const layer_data& layers, const std::vector<uint32_t>& target_layers, std::mt19937& gen) {
-	std::vector<uint32_t> weight_sizes;
-	for (const auto& layer : target_layers) {
-		weight_sizes.push_back(layers.weight_bit_sizes[layer]);
-	}
-
-	std::discrete_distribution<uint32_t> weight_layer_dist{std::begin(weight_sizes), std::end(weight_sizes)};
-	return target_layers[weight_layer_dist(gen)];
-}
-
 
 std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>
 random_weight(const layer_data& layers, uint32_t layer, std::mt19937& gen) {
@@ -145,12 +129,12 @@ random_selection(const layer_data& layers, int target_type) {
 	}
 
 	if (weight) {
-		const auto layer = random_weight_layer(layers, gen);
+		const auto layer = random_weighted_selection(layers.weight_bit_sizes, gen);
 		const auto weight = random_weight(layers, layer, gen);
 		return std::tuple_cat(std::make_tuple(2*layer), weight);
 	}
 	else {
-		const auto layer = random_activation_layer(layers, gen);
+		const auto layer = random_weighted_selection(layers.activation_bit_sizes, gen);
 		const auto activation = random_activation(layers, layer, gen);
 		return std::tuple_cat(std::make_tuple((2*layer)+1), activation);
 	}
@@ -161,13 +145,8 @@ random_selection(const layer_data& layers, int target_type, const std::vector<ui
 	std::random_device rd;
 	std::mt19937 gen{rd()};
 
-	uint32_t weight_space = 0;
-	uint32_t activation_space = 0;
-
-	for (const auto& layer : target_layers) {
-		weight_space += layers.weight_bit_sizes[layer];
-		activation_space += layers.activation_bit_sizes[layer];
-	}
+	const uint32_t weight_space = layers.weight_bits(target_layers);
+	const uint32_t activation_space = layers.activation_bits(target_layers);
 
 	bool weight;
 	if (target_type < 0) {
@@ -181,12 +160,12 @@ random_selection(const layer_data& layers, int target_type, const std::vector<ui
 	}
 
 	if (weight) {
-		const auto layer = random_weight_layer(layers, gen);
+		const auto layer = random_weighted_selection(layers.weight_bit_sizes, target_layers, gen);
 		const auto weight = random_weight(layers, layer, gen);
 		return std::tuple_cat(std::make_tuple(2*layer), weight);
 	}
 	else {
-		const auto layer = random_activation_layer(layers, gen);
+		const auto layer = random_weighted_selection(layers.activation_bit_sizes, target_layers, gen);
 		const auto activation = random_activation(layers, layer, gen);
 		return std::tuple_cat(std::make_tuple((2*layer)+1), activation);
 	}

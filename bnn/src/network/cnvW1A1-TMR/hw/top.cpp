@@ -49,8 +49,8 @@
 #include "mvau.hpp"
 
 static TMRBinaryWeights<L0_SIMD, L0_PE, L0_WMEM>  weights0;
-static TMRBinaryWeights<L1_SIMD, L1_PE, L1_WMEM>  weights1;
-static TMRBinaryWeights<L2_SIMD, L2_PE, L2_WMEM>  weights2;
+static BinaryWeights<L1_SIMD, L1_PE, L1_WMEM>  weights1;
+static BinaryWeights<L2_SIMD, L2_PE, L2_WMEM>  weights2;
 static BinaryWeights<L3_SIMD, L3_PE, L3_WMEM>  weights3;
 static BinaryWeights<L4_SIMD, L4_PE, L4_WMEM>  weights4;
 static BinaryWeights<L5_SIMD, L5_PE, L5_WMEM>  weights5;
@@ -61,8 +61,8 @@ static BinaryWeights<L8_SIMD, L8_PE, L8_WMEM>  weights8;
 static TMRThresholdsActivation<L0_TMEM, L0_PE, L0_API, ap_fixed<24, 16>, ap_uint<L0_API> > threshs0;
 static TMRThresholdsActivation<L1_TMEM, L1_PE, L1_API, ap_int<16>, ap_uint<L1_API>>  		threshs1;
 static TMRThresholdsActivation<L2_TMEM, L2_PE, L2_API, ap_int<16>, ap_uint<L2_API>>  		threshs2;
-static ThresholdsActivation<L3_TMEM, L3_PE, L3_API, ap_int<16>, ap_uint<L3_API>>  		threshs3;
-static ThresholdsActivation<L4_TMEM, L4_PE, L4_API, ap_int<16>, ap_uint<L4_API>>  		threshs4;
+static TMRThresholdsActivation<L3_TMEM, L3_PE, L3_API, ap_int<16>, ap_uint<L3_API>>  		threshs3;
+static TMRThresholdsActivation<L4_TMEM, L4_PE, L4_API, ap_int<16>, ap_uint<L4_API>>  		threshs4;
 static ThresholdsActivation<L5_TMEM, L5_PE, L5_API, ap_int<16>, ap_uint<L5_API>>  		threshs5;
 static ThresholdsActivation<L6_TMEM, L6_PE, L6_API, ap_int<16>, ap_uint<L6_API>>  		threshs6;
 static ThresholdsActivation<L7_TMEM, L7_PE, L7_API, ap_int<16>, ap_uint<L7_API>>  		threshs7;
@@ -84,13 +84,13 @@ void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int ta
       threshs0.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = *reinterpret_cast<ap_fixed<64, 56> *>(&val);
       break;
     case 2:
-      weights1.m_weights[targetMem][targetInd][targetModule] = val;
+      weights1.m_weights[targetMem][targetInd] = val;
       break;
     case 3:
       threshs1.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
       break;
     case 4:
-      weights2.m_weights[targetMem][targetInd][targetModule] = val;
+      weights2.m_weights[targetMem][targetInd] = val;
       break;
     case 5:
       threshs2.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
@@ -99,13 +99,13 @@ void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int ta
       weights3.m_weights[targetMem][targetInd] = val;
       break;
     case 7:
-      threshs3.m_thresholds[targetMem][targetInd][targetThresh] = val;
+      threshs3.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
       break;
     case 8:
       weights4.m_weights[targetMem][targetInd] = val;
       break;
     case 9:
-      threshs4.m_thresholds[targetMem][targetInd][targetThresh] = val;
+      threshs4.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
       break;
     case 10:
       weights5.m_weights[targetMem][targetInd] = val;
@@ -141,21 +141,21 @@ ap_uint<64> DoMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned
     case 1:
       return static_cast< ap_uint<64> >(threshs0.m_thresholds[targetMem][targetInd][targetThresh][targetModule]);
     case 2:
-      return weights1.m_weights[targetMem][targetInd][targetModule];
+      return weights1.m_weights[targetMem][targetInd];
     case 3:
       return threshs1.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 4:
-      return weights2.m_weights[targetMem][targetInd][targetModule];
+      return weights2.m_weights[targetMem][targetInd];
     case 5:
       return threshs2.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 6:
       return weights3.m_weights[targetMem][targetInd];
     case 7:
-      return threshs3.m_thresholds[targetMem][targetInd][targetThresh];
+      return threshs3.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 8:
       return weights4.m_weights[targetMem][targetInd];
     case 9:
-      return threshs4.m_thresholds[targetMem][targetInd][targetThresh];
+      return threshs4.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 10:
       return weights5.m_weights[targetMem][targetInd];
     case 11:

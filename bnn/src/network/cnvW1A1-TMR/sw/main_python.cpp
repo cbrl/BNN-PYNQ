@@ -73,8 +73,8 @@ extern "C" void load_parameters(const char* path) {
   FoldedMVLoadLayerMem(path, 0, L0_PE, L0_WMEM, L0_TMEM, L0_API, 3);
   FoldedMVLoadLayerMem(path, 1, L1_PE, L1_WMEM, L1_TMEM, L1_API, 3);
   FoldedMVLoadLayerMem(path, 2, L2_PE, L2_WMEM, L2_TMEM, L2_API, 3);
-  FoldedMVLoadLayerMem(path, 3, L3_PE, L3_WMEM, L3_TMEM, L3_API);
-  FoldedMVLoadLayerMem(path, 4, L4_PE, L4_WMEM, L4_TMEM, L4_API);
+  FoldedMVLoadLayerMem(path, 3, L3_PE, L3_WMEM, L3_TMEM, L3_API, 3);
+  FoldedMVLoadLayerMem(path, 4, L4_PE, L4_WMEM, L4_TMEM, L4_API, 3);
   FoldedMVLoadLayerMem(path, 5, L5_PE, L5_WMEM, L5_TMEM, L5_API);
   FoldedMVLoadLayerMem(path, 6, L6_PE, L6_WMEM, L6_TMEM, L6_API);
   FoldedMVLoadLayerMem(path, 7, L7_PE, L7_WMEM, L7_TMEM, L7_API);
@@ -90,6 +90,8 @@ void random_fault(
 #include "config.h"
 
 	const layer_data layers = {
+		{3,       1,       1,       1,       1,       1,       1,       1,       1},
+		{3,       3,       3,       3,       3,       1,       1,       1,       1},
 		{L0_PE,   L1_PE,   L2_PE,   L3_PE,   L4_PE,   L5_PE,   L6_PE,   L7_PE,   L8_PE},
 		{L0_WMEM, L1_WMEM, L2_WMEM, L3_WMEM, L4_WMEM, L5_WMEM, L6_WMEM, L7_WMEM, L8_WMEM},
 		{L0_TMEM, L1_TMEM, L2_TMEM, L3_TMEM, L4_TMEM, L5_TMEM, L6_TMEM, L7_TMEM, L8_TMEM},
@@ -108,11 +110,15 @@ void random_fault(
 		selection = random_selection(layers, target_type);
 	}
 
+	// Apply fault to random module if the fault is in a TMR layer
 	unsigned int module = -1;
-	if (std::get<0>(selection) <= 2) { //apply fault to random module if the fault is in the first 3 layers
+	const uint32_t layer = std::get<0>(selection);
+	if ( ((layer / 2) <= 4) &&
+	     ((layer % 2) != 0 || layer == 0) ) {
+
 		std::random_device rd;
 		std::mt19937 gen{rd()};
-		std::uniform_int_distribution<unsigned int> module_dist{0, 2};
+		std::uniform_int_distribution<unsigned int> module_dist{0, 2}; //choose one of three modules
 		module = module_dist(gen);
 	}
 

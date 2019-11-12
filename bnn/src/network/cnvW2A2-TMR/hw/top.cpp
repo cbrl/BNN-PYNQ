@@ -50,7 +50,7 @@
 #include "mvau.hpp"
 
 static TMRFixedPointWeights<L0_SIMD, ap_int<L0_WPI>, L0_PE, L0_WMEM>   weights0;
-static TMRFixedPointWeights<L1_SIMD, ap_int<L1_WPI>, L1_PE, L1_WMEM>   weights1;
+static FixedPointWeights<L1_SIMD, ap_int<L1_WPI>, L1_PE, L1_WMEM>   weights1;
 static FixedPointWeights<L2_SIMD, ap_int<L2_WPI>, L2_PE, L2_WMEM>   weights2;
 static FixedPointWeights<L3_SIMD, ap_int<L3_WPI>, L3_PE, L3_WMEM>   weights3;
 static FixedPointWeights<L4_SIMD, ap_int<L4_WPI>, L4_PE, L4_WMEM>   weights4;
@@ -61,9 +61,9 @@ static FixedPointWeights<L8_SIMD, ap_int<L8_WPI>, L8_PE, L8_WMEM>   weights8;
 
 static TMRThresholdsActivation<L0_TMEM, L0_PE, L0_API, ap_fixed<24, 16>, ap_int<L0_API>, -1> 	threshs0;
 static TMRThresholdsActivation<L1_TMEM, L1_PE, L1_API, ap_int<16>, ap_int<L1_API>, -1>  	  	threshs1;
-static ThresholdsActivation<L2_TMEM, L2_PE, L2_API, ap_int<16>, ap_int<L2_API>, -1>  	  	threshs2;
-static ThresholdsActivation<L3_TMEM, L3_PE, L3_API, ap_int<16>, ap_int<L3_API>, -1> 	  	threshs3;
-static ThresholdsActivation<L4_TMEM, L4_PE, L4_API, ap_int<16>, ap_int<L4_API>, -1>  	  	threshs4;
+static TMRThresholdsActivation<L2_TMEM, L2_PE, L2_API, ap_int<16>, ap_int<L2_API>, -1>  	  	threshs2;
+static TMRThresholdsActivation<L3_TMEM, L3_PE, L3_API, ap_int<16>, ap_int<L3_API>, -1> 	  	threshs3;
+static TMRThresholdsActivation<L4_TMEM, L4_PE, L4_API, ap_int<16>, ap_int<L4_API>, -1>  	  	threshs4;
 static ThresholdsActivation<L5_TMEM, L5_PE, L5_API, ap_int<16>, ap_int<L5_API>, -1>       	threshs5;
 static ThresholdsActivation<L6_TMEM, L6_PE, L6_API, ap_int<16>, ap_int<L6_API>, -1>  	  	threshs6;
 static ThresholdsActivation<L7_TMEM, L7_PE, L7_API, ap_int<16>, ap_int<L7_API>, -1>  	  	threshs7;
@@ -85,7 +85,7 @@ void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int ta
       threshs0.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = *reinterpret_cast<ap_fixed<64,56> *>(&val);
       break;
     case 2:
-      weights1.m_weights[targetMem][targetInd][targetModule] = val;
+      weights1.m_weights[targetMem][targetInd] = val;
       break;
     case 3:
       threshs1.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
@@ -94,19 +94,19 @@ void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int ta
       weights2.m_weights[targetMem][targetInd] = val;
       break;
     case 5:
-      threshs2.m_thresholds[targetMem][targetInd][targetThresh] = val;
+      threshs2.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
       break;
     case 6:
       weights3.m_weights[targetMem][targetInd] = val;
       break;
     case 7:
-      threshs3.m_thresholds[targetMem][targetInd][targetThresh] = val;
+      threshs3.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
       break;
     case 8:
       weights4.m_weights[targetMem][targetInd] = val;
       break;
     case 9:
-      threshs4.m_thresholds[targetMem][targetInd][targetThresh] = val;
+      threshs4.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
       break;
     case 10:
       weights5.m_weights[targetMem][targetInd] = val;
@@ -142,21 +142,21 @@ ap_uint<64> DoMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned
     case 1:
       return static_cast< ap_uint<64> >(threshs0.m_thresholds[targetMem][targetInd][targetThresh][targetModule]);
     case 2:
-      return weights1.m_weights[targetMem][targetInd][targetModule];
+      return weights1.m_weights[targetMem][targetInd];
     case 3:
       return threshs1.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 4:
       return weights2.m_weights[targetMem][targetInd];
     case 5:
-      return threshs2.m_thresholds[targetMem][targetInd][targetThresh];
+      return threshs2.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 6:
       return weights3.m_weights[targetMem][targetInd];
     case 7:
-      return threshs3.m_thresholds[targetMem][targetInd][targetThresh];
+      return threshs3.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 8:
       return weights4.m_weights[targetMem][targetInd];
     case 9:
-      return threshs4.m_thresholds[targetMem][targetInd][targetThresh];
+      return threshs4.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
     case 10:
       return weights5.m_weights[targetMem][targetInd];
     case 11:
@@ -250,6 +250,7 @@ void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, unsigned int doInit,
 #pragma HLS INTERFACE s_axilite port=targetThresh bundle=control
 #pragma HLS INTERFACE s_axilite port=val bundle=control
 #pragma HLS INTERFACE s_axilite port=numReps bundle=control
+#pragma HLS INTERFACE s_axilite port=targetModule bundle=control
 // signals to be mapped to the AXI master port (hostmem)
 #pragma HLS INTERFACE m_axi offset=slave port=in bundle=hostmem depth=512
 #pragma HLS INTERFACE s_axilite port=in bundle=control
@@ -261,18 +262,18 @@ void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, unsigned int doInit,
 //#pragma HLS ARRAY_PARTITION variable=weights0.m_weights complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=threshs0.m_thresholds complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=threshs0.m_thresholds complete dim=3
-//#pragma HLS ARRAY_PARTITION variable=weights1.m_weights complete dim=1
+#pragma HLS ARRAY_PARTITION variable=weights1.m_weights complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=threshs1.m_thresholds complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=threshs1.m_thresholds complete dim=3
 #pragma HLS ARRAY_PARTITION variable=weights2.m_weights complete dim=1
-#pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=1
-#pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=3
+//#pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=3
 #pragma HLS ARRAY_PARTITION variable=weights3.m_weights complete dim=1
-#pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=1
-#pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=3
+//#pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=3
 #pragma HLS ARRAY_PARTITION variable=weights4.m_weights complete dim=1
-#pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=1
-#pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=3
+//#pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=3
 #pragma HLS ARRAY_PARTITION variable=weights5.m_weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs5.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs5.m_thresholds complete dim=3
@@ -284,8 +285,8 @@ void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, unsigned int doInit,
 #pragma HLS ARRAY_PARTITION variable=threshs7.m_thresholds complete dim=3
 #pragma HLS ARRAY_PARTITION variable=weights8.m_weights complete dim=1
 
-//#pragma HLS RESOURCE variable=threshs4.m_thresholds core=RAM_2P_LUTRAM
-//#pragma HLS RESOURCE variable=weights1.m_weights core=RAM_2P_LUTRAM
+#pragma HLS RESOURCE variable=threshs4.m_thresholds core=RAM_2P_LUTRAM
+#pragma HLS RESOURCE variable=weights1.m_weights core=RAM_2P_LUTRAM
 
   if (doInit == 1) {
     DoMemInit(targetLayer, targetMem, targetInd, targetThresh, targetModule, val);

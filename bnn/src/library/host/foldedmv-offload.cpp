@@ -385,6 +385,9 @@ ExtMemWord *bufIn, *bufOut;
  * 0x5c: Data signal of numReps
  *         bit 31~0 - numReps[31:0] (Read/Write)
  * 0x60: reserved
+ * 0x64: Data signal of targetModule
+ *         bit 31~0 - targetModule[31:0] (Read/Write)
+ * 0x68: reserved
  * 
  * (SC = Self Clear, COR = Clear on Read, TOW = Toggle on Write, COH = Clear on Handshake)
  *
@@ -397,7 +400,7 @@ void ExecAccel() {
 }
 
 ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int targetModule) {
-  uint64_t* val = thePlatform->allocAccelBuffer(8);
+  uint64_t* val = static_cast<uint64_t*>(thePlatform->allocAccelBuffer(sizeof(uint64_t)));
   uint64_t old_out = thePlatform->read64BitJamRegAddr(0x1c);
 
   // enable weight reading mode
@@ -409,7 +412,7 @@ ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, uns
   thePlatform->writeJamRegAddr(0x48, targetThresh);
   thePlatform->write64BitJamRegAddr(0x1c, (AccelDblReg) val);
   if (targetModule >= 0) { //used with tripe-module redundancy network
-    thePlatform->writeJamRegAddr(0x58, targetModule);
+    thePlatform->writeJamRegAddr(0x64, targetModule);
   }
   // do read
   ExecAccel();
@@ -434,7 +437,7 @@ void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned i
   thePlatform->writeJamRegAddr(0x48, targetThresh);
   thePlatform->write64BitJamRegAddr(0x50, (AccelDblReg) val);
   if (targetModule >= 0) { //used with tripe-module redundancy network
-    thePlatform->writeJamRegAddr(0x58, targetModule);
+    thePlatform->writeJamRegAddr(0x64, targetModule);
   }
   // do write
   ExecAccel();
