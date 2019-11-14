@@ -257,20 +257,26 @@ void BlackBoxJam(ap_uint<64> *in, ap_uint<64> *out, unsigned int doInit,
 
 // partition PE arrays
 #pragma HLS ARRAY_PARTITION variable=weights0.m_weights complete dim=1
+#pragma HLS ARRAY_PARTITION variable=weights0.m_weights complete dim=3
 #pragma HLS ARRAY_PARTITION variable=threshs0.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs0.m_thresholds complete dim=3
+#pragma HLS ARRAY_PARTITION variable=threshs0.m_thresholds complete dim=4
 #pragma HLS ARRAY_PARTITION variable=weights1.m_weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs1.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs1.m_thresholds complete dim=3
+#pragma HLS ARRAY_PARTITION variable=threshs1.m_thresholds complete dim=4
 #pragma HLS ARRAY_PARTITION variable=weights2.m_weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=3
+#pragma HLS ARRAY_PARTITION variable=threshs2.m_thresholds complete dim=4
 #pragma HLS ARRAY_PARTITION variable=weights3.m_weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=3
+#pragma HLS ARRAY_PARTITION variable=threshs3.m_thresholds complete dim=4
 #pragma HLS ARRAY_PARTITION variable=weights4.m_weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=3
+#pragma HLS ARRAY_PARTITION variable=threshs4.m_thresholds complete dim=4
 #pragma HLS ARRAY_PARTITION variable=weights5.m_weights complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs5.m_thresholds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=threshs5.m_thresholds complete dim=3
