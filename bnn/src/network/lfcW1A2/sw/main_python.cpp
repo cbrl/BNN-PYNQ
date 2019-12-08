@@ -48,7 +48,7 @@
 #include "foldedmv-offload.h"
 #include <random>
 #include <algorithm>
-#include "layers.h"
+#include "faults.h"
 
 using namespace std;
 using namespace tiny_cnn;
@@ -82,7 +82,7 @@ void random_fault(
 ) {
 #include "config.h"
 
-	const layer_data layers = {
+	const LFCTopology topology = {
     {1,       1,       1,       1},
     {1,       1,       1,       1},
 		{L0_PE,   L1_PE,   L2_PE,   L3_PE},
@@ -94,23 +94,19 @@ void random_fault(
 		{16,      16,      16,      16}
 	};
 
-	std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> selection;
-	if (target_layers) {
-		std::vector<uint32_t> target_layers_vec(target_layers, target_layers + num_layers);
-		selection = random_selection(layers, target_type, target_layers_vec);
-	}
-	else {
-		selection = random_selection(layers, target_type);
-	}
+	// Target Type
+	TargetType target_type;
+	if (target < 0) target_type = TargetType::Any;
+	else if (target == 0) target_type = TargetType::Weights;
+	else target_type = TargetType::Activations;
 
-	inject_fault(
-		std::get<0>(selection),
-		std::get<1>(selection),
-		std::get<2>(selection),
-		std::get<3>(selection),
-		std::get<4>(selection),
-		flip_word
-	);
+	// Make layers vector
+	std::vector<uint32_t> layers;
+	if (target_layers) layers = std::vector<uint32_t>{target_layers, target_layers + num_layers};
+
+	// Inject fault
+	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> func{inject_fault<LFCTopology::num_layers>};
+	inject_random_fault(topology, layers, target_type, flip_word, func);
 }
 
 extern "C" int inference(const char* path, int results[64], int number_class, float* usecPerImage) {

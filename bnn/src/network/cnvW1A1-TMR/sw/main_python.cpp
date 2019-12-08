@@ -47,9 +47,8 @@
 #include <string.h>
 #include <chrono>
 #include "foldedmv-offload.h"
-#include <random>
 #include <algorithm>
-#include "layers.h"
+#include "faults.h"
 
 using namespace std;
 using namespace tiny_cnn;
@@ -83,13 +82,13 @@ extern "C" void load_parameters(const char* path) {
 
 void random_fault(
 	bool flip_word = false,
-	int target_type = -1,
+	int target = -1,
 	int *target_layers = nullptr,
 	unsigned int num_layers = 0
 ) {
 #include "config.h"
 
-	const layer_data layers = {
+	const CNVTopology topology = {
 		{3,       1,       1,       1,       1,       1,       1,       1,       1},
 		{3,       3,       3,       3,       3,       1,       1,       1,       1},
 		{L0_PE,   L1_PE,   L2_PE,   L3_PE,   L4_PE,   L5_PE,   L6_PE,   L7_PE,   L8_PE},
@@ -98,39 +97,22 @@ void random_fault(
 		{L0_SIMD, L1_SIMD, L2_SIMD, L3_SIMD, L4_SIMD, L5_SIMD, L6_SIMD, L7_SIMD, L8_SIMD},
 		{L0_API,  L1_API,  L2_API,  L3_API,  L4_API,  L5_API,  L6_API,  L7_API,  L8_API},
 		{L0_WPI,  L1_WPI,  L2_WPI,  L3_WPI,  L4_WPI,  L5_WPI,  L6_WPI,  L7_WPI,  L8_WPI},
-		{24,      16,      16,      16,      16,      16,      16,      16}
+		{24,      16,      16,      16,      16,      16,      16,      16,      0}
 	};
+	
+	// Target Type
+	TargetType target_type;
+	if (target < 0) target_type = TargetType::Any;
+	else if (target == 0) target_type = TargetType::Weights;
+	else target_type = TargetType::Activations;
 
-	std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> selection;
-	if (target_layers) {
-		std::vector<uint32_t> target_layers_vec(target_layers, target_layers + num_layers);
-		selection = random_selection(layers, target_type, target_layers_vec);
-	}
-	else {
-		selection = random_selection(layers, target_type);
-	}
+	// Make layers vector
+	std::vector<uint32_t> layers;
+	if (target_layers) layers = std::vector<uint32_t>{target_layers, target_layers + num_layers};
 
-	// Apply fault to random module if the fault is in a TMR layer
-	unsigned int module = -1;
-	const uint32_t layer = std::get<0>(selection);
-	if ( ((layer / 2) <= 4) &&
-	     ((layer % 2) != 0 || layer == 0) ) {
-
-		std::random_device rd;
-		std::mt19937 gen{rd()};
-		std::uniform_int_distribution<unsigned int> module_dist{0, 2}; //choose one of three modules
-		module = module_dist(gen);
-	}
-
-	inject_fault(
-		std::get<0>(selection),
-		std::get<1>(selection),
-		std::get<2>(selection),
-		std::get<3>(selection),
-		std::get<4>(selection),
-		flip_word,
-		module
-	);
+	// Inject fault
+	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> func{inject_fault<CNVTopology::num_layers>};
+	inject_random_fault(topology, layers, target_type, flip_word, func);
 }
 
 extern "C" int inference(const char* path, int results[64], int number_class, float* usecPerImage) {

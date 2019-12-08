@@ -49,7 +49,7 @@
 #include "foldedmv-offload.h"
 #include <random>
 #include <algorithm>
-#include "layers.h"
+#include "faults.h"
 
 using namespace std;
 using namespace tiny_cnn;
@@ -89,7 +89,7 @@ void random_fault(
 ) {
 #include "config.h"
 
-	const layer_data layers = {
+	const CNVTopology topology = {
 		{1,       1,       1,       1,       1,       1,       1,       1,       1},
 		{1,       1,       1,       1,       1,       1,       1,       1,       1},
 		{L0_PE,   L1_PE,   L2_PE,   L3_PE,   L4_PE,   L5_PE,   L6_PE,   L7_PE,   L8_PE},
@@ -98,26 +98,22 @@ void random_fault(
 		{L0_SIMD, L1_SIMD, L2_SIMD, L3_SIMD, L4_SIMD, L5_SIMD, L6_SIMD, L7_SIMD, L8_SIMD},
 		{L0_API,  L1_API,  L2_API,  L3_API,  L4_API,  L5_API,  L6_API,  L7_API,  L8_API},
 		{L0_WPI,  L1_WPI,  L2_WPI,  L3_WPI,  L4_WPI,  L5_WPI,  L6_WPI,  L7_WPI,  L8_WPI},
-		{24,      16,      16,      16,      16,      16,      16,      16}
+		{24,      16,      16,      16,      16,      16,      16,      16,      0}
 	};
 
-	std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> selection;
-	if (target_layers) {
-		std::vector<uint32_t> target_layers_vec(target_layers, target_layers + num_layers);
-		selection = random_selection(layers, target_type, target_layers_vec);
-	}
-	else {
-		selection = random_selection(layers, target_type);
-	}
+	// Target Type
+	TargetType target_type;
+	if (target < 0) target_type = TargetType::Any;
+	else if (target == 0) target_type = TargetType::Weights;
+	else target_type = TargetType::Activations;
 
-	inject_fault(
-		std::get<0>(selection),
-		std::get<1>(selection),
-		std::get<2>(selection),
-		std::get<3>(selection),
-		std::get<4>(selection),
-		flip_word
-	);
+	// Make layers vector
+	std::vector<uint32_t> layers;
+	if (target_layers) layers = std::vector<uint32_t>{target_layers, target_layers + num_layers};
+
+	// Inject fault
+	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> func{inject_fault<CNVTopology::num_layers>};
+	inject_random_fault(topology, layers, target_type, flip_word, func);
 }
 
 extern "C" int inference(const char* path, int results[64], int number_class, float* usecPerImage) {
