@@ -79,34 +79,34 @@ unsigned int paddedSizeHW(unsigned int in, unsigned int padTo) {
 void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int targetModule, ap_uint<64> val) {
   switch (targetLayer) {
     case 0:
-      weights0.m_weights[targetMem][targetInd][targetModule] = val;
+      weights0.m_weights[targetModule][targetMem][targetInd] = val;
       break;
     case 1:
-      threshs0.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = *reinterpret_cast<ap_fixed<64,56> *>(&val);
+      threshs0.m_thresholds[targetModule][targetMem][targetInd][targetThresh] = *reinterpret_cast<ap_fixed<64,56> *>(&val);
       break;
     case 2:
       weights1.m_weights[targetMem][targetInd] = val;
       break;
     case 3:
-      threshs1.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
+      threshs1.m_thresholds[targetModule][targetMem][targetInd][targetThresh] = val;
       break;
     case 4:
       weights2.m_weights[targetMem][targetInd] = val;
       break;
     case 5:
-      threshs2.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
+      threshs2.m_thresholds[targetModule][targetMem][targetInd][targetThresh] = val;
       break;
     case 6:
       weights3.m_weights[targetMem][targetInd] = val;
       break;
     case 7:
-      threshs3.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
+      threshs3.m_thresholds[targetModule][targetMem][targetInd][targetThresh] = val;
       break;
     case 8:
       weights4.m_weights[targetMem][targetInd] = val;
       break;
     case 9:
-      threshs4.m_thresholds[targetMem][targetInd][targetThresh][targetModule] = val;
+      threshs4.m_thresholds[targetModule][targetMem][targetInd][targetThresh] = val;
       break;
     case 10:
       weights5.m_weights[targetMem][targetInd] = val;
@@ -138,25 +138,25 @@ void DoMemInit(unsigned int targetLayer, unsigned int targetMem, unsigned int ta
 ap_uint<64> DoMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int targetModule) {
   switch (targetLayer) {
     case 0:
-      return weights0.m_weights[targetMem][targetInd][targetModule];
+      return weights0.m_weights[targetModule][targetMem][targetInd];
     case 1:
-      return static_cast< ap_uint<64> >(threshs0.m_thresholds[targetMem][targetInd][targetThresh][targetModule]);
+      return static_cast< ap_uint<64> >(threshs0.m_thresholds[targetModule][targetMem][targetInd][targetThresh]);
     case 2:
       return weights1.m_weights[targetMem][targetInd];
     case 3:
-      return threshs1.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
+      return threshs1.m_thresholds[targetModule][targetMem][targetInd][targetThresh];
     case 4:
       return weights2.m_weights[targetMem][targetInd];
     case 5:
-      return threshs2.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
+      return threshs2.m_thresholds[targetModule][targetMem][targetInd][targetThresh];
     case 6:
       return weights3.m_weights[targetMem][targetInd];
     case 7:
-      return threshs3.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
+      return threshs3.m_thresholds[targetModule][targetMem][targetInd][targetThresh];
     case 8:
       return weights4.m_weights[targetMem][targetInd];
     case 9:
-      return threshs4.m_thresholds[targetMem][targetInd][targetThresh][targetModule];
+      return threshs4.m_thresholds[targetModule][targetMem][targetInd][targetThresh];
     case 10:
       return weights5.m_weights[targetMem][targetInd];
     case 11:

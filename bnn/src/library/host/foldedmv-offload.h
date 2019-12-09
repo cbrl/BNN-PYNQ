@@ -139,9 +139,9 @@ void quantiseAndPack(const tiny_cnn::vec_t & in, ExtMemWord * out, unsigned int 
   }
 }
 
-inline void inject_fault(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, unsigned int bit_pos, bool word, unsigned int targetModule = -1) {
+inline void inject_fault_impl(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, int targetModule, unsigned int bit_pos, bool word) {
   uint64_t val;
-  if (targetModule > 0) {
+  if (targetModule >= 0) {
     val = FoldedMVMemRead(targetLayer, targetMem, targetInd, targetThresh, targetModule);
   }
   else {
@@ -149,18 +149,65 @@ inline void inject_fault(unsigned int targetLayer, unsigned int targetMem, unsig
   }
 
   if (word) {
-    val ^= (uint64_t{0xFF} << bit_pos);
+    val ^= (uint64_t{0xFF} << ((bit_pos/8)*8));
   }
   else {
     val ^= (uint64_t{1} << bit_pos);
   }
 
-  if (targetModule > 0) {
+  if (targetModule >= 0) {
     FoldedMVMemSet(targetLayer, targetMem, targetInd, targetThresh, val, targetModule);
   }
   else {
     FoldedMVMemSet(targetLayer, targetMem, targetInd, targetThresh, val);
   }
+}
+
+template<size_t NumLayers>
+void inject_fault(const NetworkTopology& abs_topology, TargetType target_type, bool flip_word, uint32_t layer, uint32_t bit) {
+  const auto& topology = static_cast<const FINNTopology<NumLayers>&>(abs_topology);
+
+  unsigned int module;
+  unsigned int mem;
+  unsigned int ind;
+  unsigned int thresh;
+  
+  if ((target_type == TargetType::Weights) && (topology.weight_modules[layer] > 1)) {
+    const uint32_t module_size = topology.weight_bit_sizes[layer] / topology.weight_modules[layer];
+    module = bit / module_size;
+    bit    = bit % module_size;
+  }
+  else if ((target_type == TargetType::Activations) && (topology.activation_modules[layer] > 1)) {
+    const uint32_t module_size = topology.activation_bit_sizes[layer] / topology.activation_modules[layer];
+    module = bit / module_size;
+    bit    = bit % module_size;
+  }
+  else {
+    module = -1;
+  }
+  
+  if (target_type == TargetType::Weights) {
+    const uint32_t element_size = topology.SIMD[layer] * topology.WPI[layer];
+    const uint32_t element = bit / element_size;
+
+    thresh = 0;
+    ind    =  element % topology.WMEM[layer];
+    mem    = (element / topology.WMEM[layer]) % topology.PE[layer];
+    bit    = bit % element_size;
+    layer  = layer * 2;
+  }
+  else {
+    const uint32_t element_size = topology.activation_element_bits[layer];
+    const uint32_t element = bit / element_size;
+
+    thresh =   element % topology.API[layer];
+    ind    =  (element / topology.API[layer]) % topology.TMEM[layer];
+    mem    = ((element / topology.API[layer]) / topology.TMEM[layer]) % topology.PE[layer];
+    bit    = bit % element_size;
+    layer  = (layer * 2) + 1;
+  }
+
+  inject_fault_impl(layer, mem, ind, thresh, bit, module, flip_word);
 }
 
 
