@@ -60,6 +60,7 @@ public:
 		}
 	}
 
+
 	virtual uint32_t weight_bits() const noexcept override {
 		static const uint32_t bits = std::accumulate(weight_bit_sizes.begin(), weight_bit_sizes.end(), 0);
 		return bits;
@@ -75,6 +76,7 @@ public:
 
 		return bits;
 	}
+
 
 	virtual uint32_t activation_bits() const noexcept override {
 		static const uint32_t bits = std::accumulate(activation_bit_sizes.begin(), activation_bit_sizes.end(), 0);
@@ -92,6 +94,7 @@ public:
 		return bits;
 	}
 
+
 	virtual std::tuple<uint32_t, uint32_t> random_weight_bit() const noexcept override {
 		const uint32_t layer = random_weighted_selection(weight_bit_sizes);
 		const uint32_t bit = random_bit(weight_bit_sizes[layer]);
@@ -103,6 +106,7 @@ public:
 		const uint32_t bit = random_bit(weight_bit_sizes[layer]);
 		return {layer, bit};
 	}
+	
 
 	virtual std::tuple<uint32_t, uint32_t> random_activation_bit() const noexcept override {
 		const uint32_t layer = random_weighted_selection(activation_bit_sizes);
