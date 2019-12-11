@@ -156,16 +156,24 @@ class PynqBNN:
 		return result_array
 
 	# starts inference on multiple images, output is vector containing inferred class of each image
-	def inference_multiple_with_faults(self, path, num_faults, flip_word, target, target_layers=[]):
+	# flip_word: A boolean indicating if a bit or word should be flipped
+	# target_type: An integer specifying if weights, activations, or both should be targeted
+	#   -1 = target weights and activations
+	#    0 = target weights only
+	#    1 = target activations only
+	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
+	def inference_multiple_with_faults(self, path, num_faults, flip_word, target_type, target_layers=[]):
 		targets = []
 		if len(target_layers) == 0:
-			targets = _ffi.cast("void *", 0)
+			targets = _ffi.cast("int *", 0)
 		else:
 			targets = _ffi.from_buffer(np.array(target_layers, dtype=np.int))
 
 		size_ptr = _ffi.new("int *")
 		usecperimage = _ffi.new("float *")
-		result_ptr = self.interface.inference_multiple_with_faults(path.encode(), len(self.classes), size_ptr, usecperimage, num_faults, 1 if flip_word else 0, target, targets, len(target_layers))
+		result_ptr = self.interface.inference_multiple_with_faults(
+			path.encode(), len(self.classes), size_ptr, usecperimage, num_faults, 1 if flip_word else 0, target_type, targets, len(target_layers)
+		)
 		result_buffer = _ffi.buffer(result_ptr, size_ptr[0] * 4)
 		print("Inference took %.2f microseconds, %.2f usec per image" % (usecperimage[0]*size_ptr[0],usecperimage[0]))
 		result_array = np.copy(np.frombuffer(result_buffer, dtype=np.int32))
@@ -278,8 +286,14 @@ class CnvClassifier:
 		return result
 
 	# classify multiple cifar10 preformatted pictures, output is inferred class
-	def classify_cifars_with_faults(self, path, num_faults, flip_word, target, target_layers=[]):
-		result = self.bnn.inference_multiple_with_faults(path, num_faults, flip_word, target, target_layers)
+	# flip_word: A boolean indicating if a bit or word should be flipped
+	# target_type: An integer specifying if weights, activations, or both should be targeted
+	#   -1 = target weights and activations
+	#    0 = target weights only
+	#    1 = target activations only
+	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
+	def classify_cifars_with_faults(self, path, num_faults, flip_word, target_type, target_layers=[]):
+		result = self.bnn.inference_multiple_with_faults(path, num_faults, flip_word, target_type, target_layers)
 		self.usecPerImage = self.bnn.usecPerImage
 		return result
 
@@ -335,6 +349,13 @@ class LfcClassifier:
 		self.usecPerImage = self.bnn.usecPerImage
 		return result
 
+	# classify multiple mnist formatted image, output is vector of inferred classes
+	# flip_word: A boolean indicating if a bit or word should be flipped
+	# target_type: An integer specifying if weights, activations, or both should be targeted
+	#   -1 = target weights and activations
+	#    0 = target weights only
+	#    1 = target activations only
+	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
 	def classify_mnists_with_faults(self, mnist_format_file, num_faults, flip_word, target_type, target_layers=[]):
 		result = self.bnn.inference_multiple_with_faults(mnist_format_file, num_faults, flip_word, target_type, target_layers)
 		self.usecPerImage = self.bnn.usecPerImage
