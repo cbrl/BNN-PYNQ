@@ -205,7 +205,7 @@ extern "C" int* inference_multiple_with_faults(
 	);
 
 	// Classify images and inject faults
-	classification_func(flip_count, test_images.size());
+	classification_func(test_images.size(), flip_count);
 
 	if (image_number) {
 	   *image_number = all_result.size();

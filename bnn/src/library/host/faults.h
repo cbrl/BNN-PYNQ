@@ -5,12 +5,33 @@
 #include <vector>
 #include "topology.h"
 
+
 enum class TargetType : uint8_t {
 	Any = 0,
 	Weights = 1,
 	Activations = 2,
 };
 
+
+// RandomFaultArgs
+//
+// Description:
+// A struct which contains the arguments needed for fault injection
+//
+// Members:
+// topology       - The filled NetworkTopology class
+//
+// target_layers  - A vector containing the layers that should
+//                  be targeted. Pass empty vector for all layers.
+//
+// target_type    - Indicates if weights, activations, or both should
+//                  be targeted for fault injection.
+//
+// flip_word      - Indicates if a word should be flipped
+//
+// injection_func - A function which handles the actual fault injection.
+//                  arguments are (topology, target_type, flip_word, layer, bit).
+//                  Layer and bit are the n-th layer and n-th bit in that layer.
 struct RandomFaultArgs {
 	RandomFaultArgs(
 		const NetworkTopology& topology,
@@ -32,6 +53,7 @@ struct RandomFaultArgs {
 	bool flip_word;
 	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> injection_func;
 };
+
 
 namespace fault_impl {
 void inject_random_fault(const RandomFaultArgs& args) {
@@ -71,12 +93,27 @@ void inject_random_fault(const RandomFaultArgs& args) {
 }
 }
 
+
+// make_faulty_classification_func
+//
+// Description:
+// Create a function which classifies images and injects faults at uniformly
+// distributed locations and times.
+//
+// Arguments:
+// fault_args          - A filled RandomFaultArgs struct
+// classification_func - A function which accepts an index as an argument
+//                       and classifies the associated image
+//
+// Returns:
+// A std::function which takes two argumesnts: the number of images to
+// classify and the number of faults to inject, in that order.
 template<typename ClassificationFuncT>
 std::function<void(uint32_t, uint32_t)> make_faulty_classification_func(
 	const RandomFaultArgs& fault_args,
 	ClassificationFuncT&& classification_func
 ) {
-	return [=](uint32_t num_faults, uint32_t num_classifications) {
+	return [=](uint32_t num_classifications, uint32_t num_faults) {
 		// Random device/generator
 		std::random_device rd;
 		std::mt19937 gen{rd()};
