@@ -56,7 +56,7 @@ struct RandomFaultArgs {
 
 
 namespace fault_impl {
-void inject_random_fault(const RandomFaultArgs& args) {
+inline void inject_random_fault(const RandomFaultArgs& args) {
 	TargetType target;
 
 	if (args.target_type == TargetType::Any) {
@@ -102,24 +102,28 @@ void inject_random_fault(const RandomFaultArgs& args) {
 //
 // Arguments:
 // fault_args          - A filled RandomFaultArgs struct
+// num_images          - The number of images to classify
 // classification_func - A function which accepts an index as an argument
 //                       and classifies the associated image
 //
 // Returns:
-// A std::function which takes two argumesnts: the number of images to
-// classify and the number of faults to inject, in that order.
+// A std::function which runs the classifcation and automatically injects
+// faults. It accepts one argument, which specified the number of faults
+// to inject. The faults will be uniformly distributed based on the
+// number of images to classify.
 template<typename ClassificationFuncT>
-std::function<void(uint32_t, uint32_t)> make_faulty_classification_func(
+std::function<void(uint32_t)> make_faulty_classification_func(
 	const RandomFaultArgs& fault_args,
+	size_t num_images,
 	ClassificationFuncT&& classification_func
 ) {
-	return [=](uint32_t num_classifications, uint32_t num_faults) {
+	return [=](uint32_t num_faults) {
 		// Random device/generator
 		std::random_device rd;
 		std::mt19937 gen{rd()};
 
 		// Used to determine what time in the process to inject a fault
-		std::uniform_int_distribution<size_t> loop_dist{0, num_classifications - 1};
+		std::uniform_int_distribution<size_t> loop_dist{0, num_images - 1};
 
 		// Generate fault times
 		std::vector<size_t> fault_indices;
@@ -127,7 +131,7 @@ std::function<void(uint32_t, uint32_t)> make_faulty_classification_func(
 			fault_indices.push_back(loop_dist(gen));
 		}
 
-		for (uint32_t i = 0; i < num_classifications; ++i) {
+		for (uint32_t i = 0; i < num_images; ++i) {
 			// Inject a fault
 			std::vector<size_t>::iterator it = std::find(fault_indices.begin(), fault_indices.end(), i);
 			while (it != fault_indices.end()) {

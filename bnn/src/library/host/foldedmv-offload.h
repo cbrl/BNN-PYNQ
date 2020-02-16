@@ -44,6 +44,7 @@
 #include <iostream>
 #include "tiny_cnn/tiny_cnn.h"
 #include "ap_int.h"
+#include "faults.h"
 
 using namespace std;
 
@@ -77,20 +78,24 @@ void FoldedMVLoadLayerMem(std::string dir,
 						  unsigned int linesWMem, 
 						  unsigned int linesTMem, 
 						  unsigned int numThresh,
-              unsigned int numModules = 0);
+              unsigned int numModules = 0,
+              bool interleaved_weight = false,
+              unsigned int weight_size = 0,
+              bool interleaved_thresh = false,
+              unsigned int thresh_size = 0);
 
 ExtMemWord FoldedMVMemRead(unsigned int targetLayer, 
                            unsigned int targetMem, 
 					unsigned int targetInd, 
 					unsigned int targetThresh,
-          unsigned int targetModule = -1);
+          int targetModule = -1);
 
 void FoldedMVMemSet(unsigned int targetLayer, 
                     unsigned int targetMem, 
 					unsigned int targetInd, 
 					unsigned int targetThresh, 
 					ExtMemWord val,
-          unsigned int targetModule = -1);
+          int targetModule = -1);
 
 std::vector<int> testPrebinarized_nolabel_multiple_images(std::vector<tiny_cnn::vec_t> & imgs, 
                                                           const unsigned int labelBits, 
@@ -163,22 +168,22 @@ inline void inject_fault_impl(unsigned int targetLayer, unsigned int targetMem, 
   }
 }
 
-template<size_t NumLayers>
+template<typename TopologyT>
 void inject_fault(const NetworkTopology& abs_topology, TargetType target_type, bool flip_word, uint32_t layer, uint32_t bit) {
-  const auto& topology = static_cast<const FINNTopology<NumLayers>&>(abs_topology);
+  const auto& topology = static_cast<const TopologyT&>(abs_topology);
 
-  unsigned int module;
+  int module;
   unsigned int mem;
   unsigned int ind;
   unsigned int thresh;
   
   if ((target_type == TargetType::Weights) && (topology.weight_modules[layer] > 1)) {
-    const uint32_t module_size = topology.weight_bit_sizes[layer] / topology.weight_modules[layer];
+    const uint32_t module_size = topology.weight_layer_bits[layer] / topology.weight_modules[layer];
     module = bit / module_size;
     bit    = bit % module_size;
   }
   else if ((target_type == TargetType::Activations) && (topology.activation_modules[layer] > 1)) {
-    const uint32_t module_size = topology.activation_bit_sizes[layer] / topology.activation_modules[layer];
+    const uint32_t module_size = topology.activation_layer_bits[layer] / topology.activation_modules[layer];
     module = bit / module_size;
     bit    = bit % module_size;
   }
@@ -207,7 +212,7 @@ void inject_fault(const NetworkTopology& abs_topology, TargetType target_type, b
     layer  = (layer * 2) + 1;
   }
 
-  inject_fault_impl(layer, mem, ind, thresh, bit, module, flip_word);
+  inject_fault_impl(layer, mem, ind, thresh, module, bit, flip_word);
 }
 
 

@@ -105,7 +105,7 @@ RandomFaultArgs make_random_fault_args(
 	if (target_layers) layers = std::vector<uint32_t>{target_layers, target_layers + num_layers};
 
 	// Injection func
-	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> func{inject_fault<LFCTopology::num_layers>};
+	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> func{inject_fault<LFCTopology>};
 	
 	return RandomFaultArgs{topology, layers, target_type, flip_word != 0, func};
 }
@@ -181,6 +181,7 @@ extern "C" int* inference_multiple_with_faults(
   
   auto classification_func = make_faulty_classification_func(
     fault_args,
+    test_images.size(),
     [&](uint32_t image_idx) {
       std::vector<vec_t> single_img = {test_images[image_idx]};
 
@@ -193,7 +194,7 @@ extern "C" int* inference_multiple_with_faults(
   );
 
   // Classify images and inject faults
-  classification_func(test_images.size(), flip_count);
+  classification_func(flip_count);
 
   result = new int [all_result.size()];
   std::copy(all_result.begin(),all_result.end(), result);	

@@ -73,7 +73,7 @@ void FoldedMVDeinit() {
   bufOut = 0;
 }
 
-ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd,unsigned int targetThresh, unsigned int targetModule) {
+ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd,unsigned int targetThresh, int targetModule) {
   uint64_t* val = new uint64_t;
   // call the accelerator in weight read mode
   BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)val, 2, targetLayer, targetMem, targetInd,targetThresh, 0, 0, targetModule);
@@ -82,7 +82,7 @@ ExtMemWord FoldedMVMemRead(unsigned int targetLayer, unsigned int targetMem, uns
   return out;
 }
 
-void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd,unsigned int targetThresh, ExtMemWord val, unsigned int targetModule) {
+void FoldedMVMemSet(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd,unsigned int targetThresh, ExtMemWord val, int targetModule) {
   // call the accelerator in weight init mode
   BlackBoxJam((ap_uint<64> *)bufIn, (ap_uint<64> *)bufOut, 1, targetLayer, targetMem, targetInd,targetThresh, val, 0, targetModule);
 }

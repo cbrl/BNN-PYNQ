@@ -37,13 +37,17 @@ import tempfile
 RUNTIME_HW = "python_hw"
 RUNTIME_SW = "python_sw"
 
-NETWORK_CNVW1A1     = "cnvW1A1"
-NETWORK_CNVW1A1_TMR = "cnvW1A1-TMR"
-NETWORK_CNVW1A2     = "cnvW1A2"
-NETWORK_CNVW2A2     = "cnvW2A2"
-NETWORK_CNVW2A2_TMR = "cnvW2A2-TMR"
-NETWORK_LFCW1A1     = "lfcW1A1"
-NETWORK_LFCW1A2     = "lfcW1A2"
+NETWORK_CNVW1A1             = "cnvW1A1"
+NETWORK_CNVW1A1_INTERLEAVED = "cnvW1A1-interleaved"
+NETWORK_CNVW1A1_TMR         = "cnvW1A1-TMR"
+NETWORK_CNVW1A2             = "cnvW1A2"
+NETWORK_CNVW1A2_INTERLEAVED = "cnvW1A2-interleaved"
+NETWORK_CNVW2A2             = "cnvW2A2"
+NETWORK_CNVW2A2_INTERLEAVED = "cnvW2A2-interleaved"
+NETWORK_CNVW2A2_TMR         = "cnvW2A2-TMR"
+NETWORK_LFCW1A1             = "lfcW1A1"
+NETWORK_LFCW1A2             = "lfcW1A2"
+NETWORK_LFCW1A2_INTERLEAVED = "lfcW1A2-interleaved"
 
 if os.environ['BOARD'] == 'Ultra96':
 	PLATFORM="ultra96"
@@ -276,6 +280,22 @@ class CnvClassifier:
 				self.image_to_cifar(img, tmp)
 			tmp.flush()
 			result = self.bnn.inference_multiple(tmp.name)
+		self.usecPerImage = self.bnn.usecPerImage
+		return result
+
+	# classify multiple regular images, result is highest ranked class
+	# flip_word: A boolean indicating if a bit or word should be flipped
+	# target_type: An integer specifying if weights, activations, or both should be targeted
+	#   -1 = target weights and activations
+	#    0 = target weights only
+	#    1 = target activations only
+	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
+	def classify_images_with_faults(self, imgs, num_faults, flip_word, target_type, target_layers=[]):
+		with tempfile.NamedTemporaryFile() as tmp:
+			for img in imgs:
+				self.image_to_cifar(img, tmp)
+			tmp.flush()
+			result = self.bnn.inference_multiple_with_faults(tmp.name, num_faults, flip_word, target_type, target_layers)
 		self.usecPerImage = self.bnn.usecPerImage
 		return result
 
