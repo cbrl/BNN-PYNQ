@@ -71,15 +71,25 @@ extern "C" void load_parameters(const char* path) {
   makeNetwork(nn);
   cout << "Setting network weights and thresholds in accelerator..." << endl;
 
-	FoldedMVLoadLayerMem(path, 0, L0_PE, L0_WMEM, L0_TMEM, L0_API, 0, false, L0_SIMD * L0_WPI, true,  24);
-	FoldedMVLoadLayerMem(path, 1, L1_PE, L1_WMEM, L1_TMEM, L1_API, 0, false, L1_SIMD * L1_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 2, L2_PE, L2_WMEM, L2_TMEM, L2_API, 0, false, L2_SIMD * L2_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 3, L3_PE, L3_WMEM, L3_TMEM, L3_API, 0, false, L3_SIMD * L3_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 4, L4_PE, L4_WMEM, L4_TMEM, L4_API, 0, false, L4_SIMD * L4_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 5, L5_PE, L5_WMEM, L5_TMEM, L5_API, 0, false, L5_SIMD * L5_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 6, L6_PE, L6_WMEM, L6_TMEM, L6_API, 0, false, L6_SIMD * L6_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 7, L7_PE, L7_WMEM, L7_TMEM, L7_API, 0, false, L7_SIMD * L7_WPI, true,  16);
-	FoldedMVLoadLayerMem(path, 8, L8_PE, L8_WMEM, L8_TMEM, 0,      0, false, L8_SIMD * L8_WPI, true,  0);
+	InterleavedLoadArgs<L0_SIMD * L0_WPI, 24> layer0_args(false, true);
+	InterleavedLoadArgs<L1_SIMD * L1_WPI, 16> layer1_args(false, true);
+	InterleavedLoadArgs<L2_SIMD * L2_WPI, 16> layer2_args(false, true);
+	InterleavedLoadArgs<L3_SIMD * L3_WPI, 16> layer3_args(false, true);
+	InterleavedLoadArgs<L4_SIMD * L4_WPI, 16> layer4_args(false, true);
+	InterleavedLoadArgs<L5_SIMD * L5_WPI, 16> layer5_args(false, true);
+	InterleavedLoadArgs<L6_SIMD * L6_WPI, 16> layer6_args(false, true);
+	InterleavedLoadArgs<L7_SIMD * L7_WPI, 16> layer7_args(false, true);
+	InterleavedLoadArgs<L8_SIMD * L8_WPI,  0> layer8_args(false, false);
+
+	FoldedMVLoadInterleavedLayerMem(path, 0, L0_PE, L0_WMEM, L0_TMEM, L0_API, 0, layer0_args);
+	FoldedMVLoadInterleavedLayerMem(path, 1, L1_PE, L1_WMEM, L1_TMEM, L1_API, 0, layer1_args);
+	FoldedMVLoadInterleavedLayerMem(path, 2, L2_PE, L2_WMEM, L2_TMEM, L2_API, 0, layer2_args);
+	FoldedMVLoadInterleavedLayerMem(path, 3, L3_PE, L3_WMEM, L3_TMEM, L3_API, 0, layer3_args);
+	FoldedMVLoadInterleavedLayerMem(path, 4, L4_PE, L4_WMEM, L4_TMEM, L4_API, 0, layer4_args);
+	FoldedMVLoadInterleavedLayerMem(path, 5, L5_PE, L5_WMEM, L5_TMEM, L5_API, 0, layer5_args);
+	FoldedMVLoadInterleavedLayerMem(path, 6, L6_PE, L6_WMEM, L6_TMEM, L6_API, 0, layer6_args);
+	FoldedMVLoadInterleavedLayerMem(path, 7, L7_PE, L7_WMEM, L7_TMEM, L7_API, 0, layer7_args);
+	FoldedMVLoadInterleavedLayerMem(path, 8, L8_PE, L8_WMEM, L8_TMEM, 0,      0, layer8_args);
 }
 
 RandomFaultArgs make_random_fault_args(

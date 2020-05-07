@@ -293,50 +293,6 @@ void FoldedMVLoadWeightPE(ifstream& wf, unsigned int layerNo, unsigned int pe, u
     }
   }
 }
-void FoldedMVLoadInterleavedWeightPE(ifstream& wf, unsigned int layerNo, unsigned int pe, unsigned int linesWMem, unsigned int numModules, unsigned int weight_size) {
-  const unsigned int half_weight_size = weight_size / 2;
-
-  for(unsigned int line = 0 ; line < (linesWMem-1); line+=2) {
-    ExtMemWord e1 = 0;
-    ExtMemWord e2 = 0;
-    wf.read((char *)&e1, sizeof(ExtMemWord));
-    wf.read((char *)&e2, sizeof(ExtMemWord));
-
-    const uint32_t e1_high = e1 >> half_weight_size;
-    const uint32_t e1_low = e1 & ((1ull << half_weight_size) - 1);
-    const uint32_t e2_high = e2 >> half_weight_size;
-    const uint32_t e2_low = e2 & ((1ull << half_weight_size) - 1);
-
-    const ExtMemWord high_interleaved = interleave(e1_high, e2_high);
-    const ExtMemWord low_interleaved = interleave(e1_low, e2_low);
-
-    if (numModules > 0) { //write data for each module (used in triple-module redundancy version)
-      for (unsigned int module = 0; module < numModules; module++) {
-        FoldedMVMemSet(layerNo * 2, pe, line, 0, high_interleaved, module);
-        FoldedMVMemSet(layerNo * 2, pe, line+1, 0, low_interleaved, module);
-      }
-    }
-    else {
-      FoldedMVMemSet(layerNo * 2, pe, line, 0, high_interleaved);
-      FoldedMVMemSet(layerNo * 2, pe, line+1, 0, low_interleaved);
-    }
-  }
-
-  // Write last element without interleaving if there's an odd number of elements
-  if ((linesWMem % 2) != 0) {
-    ExtMemWord e = 0;
-    wf.read((char *)&e, sizeof(ExtMemWord));
-
-    if (numModules > 0) { //write data for each module (used in triple-module redundancy version)
-      for (unsigned int module = 0; module < numModules; module++) {
-        FoldedMVMemSet(layerNo * 2, pe, linesWMem-1, 0, e, module);
-      }
-    }
-    else {
-      FoldedMVMemSet(layerNo * 2, pe, linesWMem-1, 0, e);
-    }
-  }
-}
 
 void FoldedMVLoadThreshPE(ifstream& tf, unsigned int layerNo, unsigned int pe, unsigned int linesTMem, unsigned int cntThresh, unsigned int numModules) {
   for(unsigned int line = 0 ; line < linesTMem; line++) {
@@ -355,82 +311,17 @@ void FoldedMVLoadThreshPE(ifstream& tf, unsigned int layerNo, unsigned int pe, u
     }
   }
 }
-void FoldedMVLoadInterleavedThreshPE(ifstream& tf, unsigned int layerNo, unsigned int pe, unsigned int linesTMem, unsigned int cntThresh, unsigned int numModules, unsigned int thresh_size) {
-  const unsigned int half_thresh_size = thresh_size / 2;
-
-  std::vector<std::vector<ExtMemWord>> thresholds;
-
-  // Load thresholds from file
-  for(unsigned int line = 0 ; line < linesTMem; line++) {
-    thresholds.emplace_back();
-
-    for(unsigned int i = 0; i < cntThresh; ++i) {
-      ExtMemWord e = 0;
-      tf.read((char *)&e, sizeof(ExtMemWord));
-      thresholds[line].push_back(e);
-    }
-  }
-
-  // Interleave across linesTMem
-  for(unsigned int line = 0 ; line < (linesTMem-1); line += 2) {
-    for(unsigned int i = 0; i < cntThresh; ++i) {
-      const ExtMemWord e1 = thresholds[line][i];
-      const ExtMemWord e2 = thresholds[line+1][i];
-
-      const uint32_t e1_high = e1 >> half_thresh_size;
-      const uint32_t e1_low = e1 & ((1ull << half_thresh_size) - 1);
-      const uint32_t e2_high = e2 >> half_thresh_size;
-      const uint32_t e2_low = e2 & ((1ull << half_thresh_size) - 1);
-
-      const ExtMemWord high_interleaved = interleave(e1_high, e2_high);
-      const ExtMemWord low_interleaved = interleave(e1_low, e2_low);
-
-      if (numModules > 0) {
-        for (unsigned int module = 0; module < numModules; module++) {
-          FoldedMVMemSet(layerNo * 2 + 1, pe, line, i, high_interleaved, module);
-          FoldedMVMemSet(layerNo * 2 + 1, pe, line+1, i, low_interleaved, module);
-        }
-      }
-      else {
-        FoldedMVMemSet(layerNo * 2 + 1, pe, line, i, high_interleaved);
-        FoldedMVMemSet(layerNo * 2 + 1, pe, line+1, i, low_interleaved);
-      }
-    }
-  }
-
-  // Write last array without interleaving if there's an odd number of arrays
-  if ((linesTMem % 2) != 0) {
-    for(unsigned int i = 0; i < cntThresh; ++i) {
-      const ExtMemWord e = thresholds[linesTMem-1][i];
-      if (numModules > 0) {
-        for (unsigned int module = 0; module < numModules; module++) {
-          FoldedMVMemSet(layerNo * 2 + 1, pe, linesTMem-1, i, e, module);
-        }
-      }
-      else {
-        FoldedMVMemSet(layerNo * 2 + 1, pe, linesTMem-1, i, e);
-      }
-    }
-  }
-}
 
 void FoldedMVLoadLayerMem(std::string dir,
 unsigned int layerNo, unsigned int peCount, unsigned int linesWMem, unsigned int linesTMem, unsigned int cntThresh,
-unsigned int numModules,
-bool interleaved_weight, unsigned int weight_size,
-bool interleaved_thresh, unsigned int thresh_size) {
+unsigned int numModules) {
   for(unsigned int pe = 0; pe < peCount; pe++) {
     // load weights
     ifstream wf(dir + "/" + to_string(layerNo) + "-" + to_string(pe) + "-weights.bin", ios::binary | ios::in);
     if(!wf.is_open()) {
       throw "Could not open file";
     }
-    if (interleaved_weight) {
-      FoldedMVLoadInterleavedWeightPE(wf, layerNo, pe, linesWMem, numModules, weight_size);
-    }
-    else {
-      FoldedMVLoadWeightPE(wf, layerNo, pe, linesWMem, numModules);
-    }
+    FoldedMVLoadWeightPE(wf, layerNo, pe, linesWMem, numModules);
     wf.close();
 
     // load thresholds
@@ -438,12 +329,7 @@ bool interleaved_thresh, unsigned int thresh_size) {
       ifstream tf(dir + "/" + to_string(layerNo) + "-" + to_string(pe) + "-thres.bin", ios::binary | ios::in);
       if(!tf.is_open())
         throw "Could not open file";
-      if (interleaved_thresh) {
-        FoldedMVLoadInterleavedThreshPE(tf, layerNo, pe, linesTMem, cntThresh, numModules, thresh_size);
-      }
-      else {
-        FoldedMVLoadThreshPE(tf, layerNo, pe, linesTMem, cntThresh, numModules);
-      }
+      FoldedMVLoadThreshPE(tf, layerNo, pe, linesTMem, cntThresh, numModules);
       tf.close();
     }
   }

@@ -1,69 +1,105 @@
 #pragma once
 
-// Interleave x and y. The bits of x will be in the even
-// positions, and the bits of y in the odd positions.
-inline uint16_t interleave(uint8_t x_in, uint8_t y_in) {
-    uint16_t x = x_in;
-    uint16_t y = y_in;
-    uint16_t z;
+#include <array>
+#include <bitset>
+#include <type_traits>
 
-    x = (x | (x << 4)) & 0x0F0F;
-    x = (x | (x << 2)) & 0x3333;
-    x = (x | (x << 1)) & 0x5555;
+// Interleaves the bits of two values according to a pattern. If a bit in the
+// pattern is 1, then the corresponding bit in the result will be the next bit
+// in x. If the bit is 0, then it will be the next bit from y.
+template<size_t N>
+std::bitset<2*N> interleave_pattern(const std::bitset<N>& x, const std::bitset<N>& y, const std::bitset<2*N>& pattern) {
+	std::bitset<2*N> out;
+	size_t x_idx = 0;
+	size_t y_idx = 0;
 
-    y = (y | (y << 4)) & 0x0F0F;
-    y = (y | (y << 2)) & 0x3333;
-    y = (y | (y << 1)) & 0x5555;
+	for (size_t i = 0; i < pattern.size(); ++i) {
+		out[i] = pattern[i] ? x[x_idx++] : y[y_idx++];
+	}
 
-    z = x | (y << 1);
-
-    return z;
+	return out;
 }
 
 
-// Interleave x and y. The bits of x will be in the even
-// positions, and the bits of y in the odd positions.
-inline uint32_t interleave(uint16_t x_in, uint16_t y_in) {
-    uint32_t x = x_in;
-    uint32_t y = y_in;
-    uint32_t z;
+// Interleaves the bits of two values. The bits of x will be in the even
+// positions of the resultant value (0, 2, 4, ...), and the bits of y
+// will be in the odd positions.
+template<size_t N>
+std::enable_if_t<(N == 1) || ((N & (N-1)) != 0), std::bitset<2*N>> //Bit size not a power of 2
+interleave(const std::bitset<N>& x, const std::bitset<N>& y) {
+	std::bitset<2*N> out;
+	for (size_t i = 0; i < N; ++i) {
+		out[2*i] = x[i];
+		out[(2*i)+1] = y[i];
+	}
+	return out;
+}
 
-    x = (x | (x << 8)) & 0x00FF00FF;
-    x = (x | (x << 4)) & 0x0F0F0F0F;
-    x = (x | (x << 2)) & 0x33333333;
-    x = (x | (x << 1)) & 0x55555555;
+// Interleaves the bits of two values. The bits of x will be in the even
+// positions of the resultant value (0, 2, 4, ...), and the bits of y
+// will be in the odd positions.
+template<size_t N>
+std::enable_if_t<(N > 1) && ((N & (N-1)) == 0), std::bitset<2*N>> //Bit size is a power of 2
+interleave(const std::bitset<N>& x_in, const std::bitset<N>& y_in) {
+    std::bitset<2*N> x = x_in.to_ullong();
+    std::bitset<2*N> y = y_in.to_ullong();
+    std::bitset<2*N> mask;
+	mask.flip();
 
-    y = (y | (y << 8)) & 0x00FF00FF;
-    y = (y | (y << 4)) & 0x0F0F0F0F;
-    y = (y | (y << 2)) & 0x33333333;
-    y = (y | (y << 1)) & 0x55555555;
+	size_t s = N; //bit size must be power of 2
 
-    z = x | (y << 1);
+	do {
+		mask ^= (mask << s);
+		x = (x | (x << s)) & mask;
+		y = (y | (y << s)) & mask;
+	} while ((s >>= 1) > 0);
 
-    return z;
+    return x | (y << 1);
 }
 
 
-// Interleave x and y. The bits of x will be in the even
-// positions, and the bits of y in the odd positions.
-inline uint64_t interleave(uint32_t x_in, uint32_t y_in) {
-    uint64_t x = x_in;
-    uint64_t y = y_in;
-    uint64_t z;
 
-    x = (x | (x << 16)) & 0x0000FFFF0000FFFF;
-    x = (x | (x << 8))  & 0x00FF00FF00FF00FF;
-    x = (x | (x << 4))  & 0x0F0F0F0F0F0F0F0F;
-    x = (x | (x << 2))  & 0x3333333333333333;
-    x = (x | (x << 1))  & 0x5555555555555555;
+template<size_t N>
+std::enable_if_t<(N == 1) || ((N & (N-1)) != 0), std::bitset<N>&> //Bit size is not a power of 2
+reverse(std::bitset<N>& bits) {
+	bool temp;
+	for (size_t i = 0; i < N/2; ++i) {
+		temp = bits[i];
+		bits[i] = bits[N-i-1];
+		bits[N-i-1] = temp;
+	}
 
-    y = (y | (y << 16)) & 0x0000FFFF0000FFFF;
-    y = (y | (y << 8))  & 0x00FF00FF00FF00FF;
-    y = (y | (y << 4))  & 0x0F0F0F0F0F0F0F0F;
-    y = (y | (y << 2))  & 0x3333333333333333;
-    y = (y | (y << 1))  & 0x5555555555555555;
+	return bits;
+}
 
-    z = x | (y << 1);
 
-    return z;
+template<size_t N>
+std::enable_if_t<(N > 1) && ((N & (N-1)) == 0), std::bitset<N>&> //Bit size is a power of 2
+reverse(std::bitset<N>& bits) {
+	size_t s = N; //bit size must be power of 2
+	std::bitset<N> mask;
+	mask.flip();
+
+	while ((s >>= 1) > 0) {
+		mask ^= (mask << s);
+		bits = ((bits >> s) & mask) | ((bits << s) & ~mask);
+	}
+
+	return bits;
+}
+
+
+
+// Reorders the bits in a value according to a user provided order. Index
+// 0 of the order array corresponds to the least significant bit value to reorder,
+// so {8, 7, 6, ..., 1, 0} would reverse the bits of an 8-bit value.
+template<size_t N>
+std::bitset<N>& reorder(std::bitset<N>& bits, const std::array<unsigned int, N>& order) {
+	const std::bitset<N> original = bits;
+
+	for (size_t i = 0; i < N; ++i) {
+		bits[i] = original[order[i]];
+	}
+
+	return bits;
 }
