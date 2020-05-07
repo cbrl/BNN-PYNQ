@@ -60,8 +60,8 @@ interleave(const std::bitset<N>& x_in, const std::bitset<N>& y_in) {
 
 
 template<size_t N>
-std::enable_if_t<(N == 1) || ((N & (N-1)) != 0), std::bitset<N>&> //Bit size is not a power of 2
-reverse(std::bitset<N>& bits) {
+std::enable_if_t<(N == 1) || ((N & (N-1)) != 0), std::bitset<N>> //Bit size is not a power of 2
+reverse(std::bitset<N> bits) {
 	bool temp;
 	for (size_t i = 0; i < N/2; ++i) {
 		temp = bits[i];
@@ -74,8 +74,8 @@ reverse(std::bitset<N>& bits) {
 
 
 template<size_t N>
-std::enable_if_t<(N > 1) && ((N & (N-1)) == 0), std::bitset<N>&> //Bit size is a power of 2
-reverse(std::bitset<N>& bits) {
+std::enable_if_t<(N > 1) && ((N & (N-1)) == 0), std::bitset<N>> //Bit size is a power of 2
+reverse(std::bitset<N> bits) {
 	size_t s = N; //bit size must be power of 2
 	std::bitset<N> mask;
 	mask.flip();
@@ -94,7 +94,7 @@ reverse(std::bitset<N>& bits) {
 // 0 of the order array corresponds to the least significant bit value to reorder,
 // so {8, 7, 6, ..., 1, 0} would reverse the bits of an 8-bit value.
 template<size_t N>
-std::bitset<N>& reorder(std::bitset<N>& bits, const std::array<unsigned int, N>& order) {
+std::bitset<N> reorder(std::bitset<N> bits, const std::array<unsigned int, N>& order) {
 	const std::bitset<N> original = bits;
 
 	for (size_t i = 0; i < N; ++i) {
