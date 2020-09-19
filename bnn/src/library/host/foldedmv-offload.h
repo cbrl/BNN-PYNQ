@@ -143,7 +143,7 @@ void quantiseAndPack(const tiny_cnn::vec_t & in, ExtMemWord * out, unsigned int 
   }
 }
 
-inline void inject_fault_impl(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, int targetModule, unsigned int bit_pos, bool word) {
+inline void inject_fault_impl(unsigned int targetLayer, unsigned int targetMem, unsigned int targetInd, unsigned int targetThresh, int targetModule, unsigned int bit_pos, uint8_t word_size) {
   uint64_t val;
   if (targetModule >= 0) {
     val = FoldedMVMemRead(targetLayer, targetMem, targetInd, targetThresh, targetModule);
@@ -152,12 +152,11 @@ inline void inject_fault_impl(unsigned int targetLayer, unsigned int targetMem, 
     val = FoldedMVMemRead(targetLayer, targetMem, targetInd, targetThresh);
   }
 
-  if (word) {
-    val ^= (uint64_t{0xFF} << ((bit_pos/8)*8));
+  uint64_t flip_mask = 0;
+  for (int i = 0; i < word_size; ++i) {
+	flip_mask |= (uint64_t{1} << i);
   }
-  else {
-    val ^= (uint64_t{1} << bit_pos);
-  }
+  val ^= (flip_mask << ((bit_pos/word_size)*word_size)); //aligns bit_pos to a multiple of word_size
 
   if (targetModule >= 0) {
     FoldedMVMemSet(targetLayer, targetMem, targetInd, targetThresh, val, targetModule);
@@ -168,7 +167,7 @@ inline void inject_fault_impl(unsigned int targetLayer, unsigned int targetMem, 
 }
 
 template<typename TopologyT>
-void inject_fault(const NetworkTopology& abs_topology, TargetType target_type, bool flip_word, uint32_t layer, uint32_t bit) {
+void inject_fault(const NetworkTopology& abs_topology, TargetType target_type, uint8_t word_size, uint32_t layer, uint32_t bit) {
   const auto& topology = static_cast<const TopologyT&>(abs_topology);
 
   int module;
@@ -211,7 +210,7 @@ void inject_fault(const NetworkTopology& abs_topology, TargetType target_type, b
     layer  = (layer * 2) + 1;
   }
 
-  inject_fault_impl(layer, mem, ind, thresh, module, bit, flip_word);
+  inject_fault_impl(layer, mem, ind, thresh, module, bit, word_size);
 }
 
 
@@ -435,7 +434,7 @@ void FoldedMVLoadInterleavedWeightPE(ifstream& wf,
   std::bitset<2*WeightSize> bit_pattern, const std::array<unsigned int, WeightSize>& e1_bit_order, const std::array<unsigned int, WeightSize>& e2_bit_order) {
 
   //const size_t half_weight_size = weight_size / 2;
-  const size_t weight_bitmask = (1ull << WeightSize) - 1;
+  const uint64_t weight_bitmask = (uint64_t{1} << WeightSize) - 1;
 
   for(unsigned int line = 0 ; line < (linesWMem-1); line+=2) {
     ExtMemWord e1 = 0;
@@ -445,9 +444,9 @@ void FoldedMVLoadInterleavedWeightPE(ifstream& wf,
 
     /*
     const uint32_t e1_high = e1 >> half_weight_size;
-    const uint32_t e1_low = e1 & ((1ull << half_weight_size) - 1);
+    const uint32_t e1_low = e1 & ((uint64_t{1} << half_weight_size) - 1);
     const uint32_t e2_high = e2 >> half_weight_size;
-    const uint32_t e2_low = e2 & ((1ull << half_weight_size) - 1);
+    const uint32_t e2_low = e2 & ((uint64_t{1} << half_weight_size) - 1);
 
     const ExtMemWord high_interleaved = interleave(e1_high, e2_high);
     const ExtMemWord low_interleaved = interleave(e1_low, e2_low);
@@ -497,8 +496,8 @@ void FoldedMVLoadInterleavedThreshPE(ifstream& tf,
   unsigned int layerNo, unsigned int pe, unsigned int linesTMem, unsigned int cntThresh, unsigned int numModules,
   std::bitset<2*ThreshSize> bit_pattern, const std::array<unsigned int, ThreshSize>& e1_bit_order, const std::array<unsigned int, ThreshSize>& e2_bit_order) {
 
-  //const size_t half_thresh_size = ThreshSize / 2;
-  const size_t thresh_bitmask = (1ull << ThreshSize) - 1;
+  //const uint64_t half_thresh_size = ThreshSize / 2;
+  const uint64_t thresh_bitmask = (uint64_t{1} << ThreshSize) - 1;
 
   std::vector<std::vector<ExtMemWord>> thresholds;
 

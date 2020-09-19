@@ -70,7 +70,7 @@ _ffi.cdef("""
 void load_parameters(const char* path);
 int inference(const char* path, int results[64], int number_class, float *usecPerImage);
 int* inference_multiple(const char* path, int number_class, int *image_number, float *usecPerImage, int enable_detail);
-int* inference_multiple_with_faults(const char* path, int number_class, int *image_number, float *usecPerImage, unsigned int flip_count, int flip_word, int target, int* target_layers, unsigned int num_targets);
+int* inference_multiple_with_faults(const char* path, int number_class, int *image_number, float *usecPerImage, unsigned int flip_count, int word_size, int target, int* target_layers, unsigned int num_targets);
 void free_results(int * result);
 void deinit();
 """
@@ -163,13 +163,13 @@ class PynqBNN:
 		return result_array
 
 	# starts inference on multiple images, output is vector containing inferred class of each image
-	# flip_word: A boolean indicating if a bit or word should be flipped
+	# word_size: The number of adjacent bits to flip per fault
 	# target_type: An integer specifying if weights, activations, or both should be targeted
 	#   -1 = target weights and activations
 	#    0 = target weights only
 	#    1 = target activations only
 	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
-	def inference_multiple_with_faults(self, path, num_faults, flip_word, target_type, target_layers=[]):
+	def inference_multiple_with_faults(self, path, num_faults, word_size, target_type, target_layers=[]):
 		targets = []
 		if len(target_layers) == 0:
 			targets = _ffi.cast("int *", 0)
@@ -179,7 +179,7 @@ class PynqBNN:
 		size_ptr = _ffi.new("int *")
 		usecperimage = _ffi.new("float *")
 		result_ptr = self.interface.inference_multiple_with_faults(
-			path.encode(), len(self.classes), size_ptr, usecperimage, num_faults, 1 if flip_word else 0, target_type, targets, len(target_layers)
+			path.encode(), len(self.classes), size_ptr, usecperimage, num_faults, word_size, target_type, targets, len(target_layers)
 		)
 		result_buffer = _ffi.buffer(result_ptr, size_ptr[0] * 4)
 		print("Inference took %.2f microseconds, %.2f usec per image" % (usecperimage[0]*size_ptr[0],usecperimage[0]))
@@ -287,18 +287,18 @@ class CnvClassifier:
 		return result
 
 	# classify multiple regular images, result is highest ranked class
-	# flip_word: A boolean indicating if a bit or word should be flipped
+	# word_size: The number of adjacent bits to flip per fault
 	# target_type: An integer specifying if weights, activations, or both should be targeted
 	#   -1 = target weights and activations
 	#    0 = target weights only
 	#    1 = target activations only
 	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
-	def classify_images_with_faults(self, imgs, num_faults, flip_word, target_type, target_layers=[]):
+	def classify_images_with_faults(self, imgs, num_faults, word_size, target_type, target_layers=[]):
 		with tempfile.NamedTemporaryFile() as tmp:
 			for img in imgs:
 				self.image_to_cifar(img, tmp)
 			tmp.flush()
-			result = self.bnn.inference_multiple_with_faults(tmp.name, num_faults, flip_word, target_type, target_layers)
+			result = self.bnn.inference_multiple_with_faults(tmp.name, num_faults, word_size, target_type, target_layers)
 		self.usecPerImage = self.bnn.usecPerImage
 		return result
 
@@ -309,14 +309,14 @@ class CnvClassifier:
 		return result
 
 	# classify multiple cifar10 preformatted pictures, output is inferred class
-	# flip_word: A boolean indicating if a bit or word should be flipped
+	# word_size: The number of adjacent bits to flip per fault
 	# target_type: An integer specifying if weights, activations, or both should be targeted
 	#   -1 = target weights and activations
 	#    0 = target weights only
 	#    1 = target activations only
 	# target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
-	def classify_cifars_with_faults(self, path, num_faults, flip_word, target_type, target_layers=[]):
-		result = self.bnn.inference_multiple_with_faults(path, num_faults, flip_word, target_type, target_layers)
+	def classify_cifars_with_faults(self, path, num_faults, word_size, target_type, target_layers=[]):
+		result = self.bnn.inference_multiple_with_faults(path, num_faults, word_size, target_type, target_layers)
 		self.usecPerImage = self.bnn.usecPerImage
 		return result
 

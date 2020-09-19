@@ -101,7 +101,7 @@ extern "C" void load_parameters(const char* path) {
 }
 
 RandomFaultArgs make_random_fault_args(
-	int flip_word,
+	int word_size,
 	int target,
 	int *target_layers,
 	unsigned int num_layers
@@ -131,9 +131,9 @@ RandomFaultArgs make_random_fault_args(
 	if (target_layers) layers = std::vector<uint32_t>{target_layers, target_layers + num_layers};
 
 	// Injection func
-	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> func{inject_fault<CNVTopology>};
+	std::function<void(const NetworkTopology&, TargetType, uint8_t, uint32_t, uint32_t)> func{inject_fault<CNVTopology>};
 	
-	return RandomFaultArgs{topology, layers, target_type, flip_word != 0, func};
+	return RandomFaultArgs{topology, layers, target_type, word_size, func};
 }
 
 extern "C" int inference(const char* path, int results[64], int number_class, float *usecPerImage) {
@@ -191,7 +191,7 @@ extern "C" int* inference_multiple_with_faults(
 	int *image_number,
 	float *usecPerImage,
 	unsigned int flip_count,
-	int flip_word = 0,
+	int word_size = 1,
 	int target_type = -1,
 	int *target_layers = nullptr,
 	unsigned int num_layers = 0
@@ -208,7 +208,7 @@ extern "C" int* inference_multiple_with_faults(
 	makeNetwork(nn);
 	parse_cifar10(path, &test_images, &test_labels, -1.0, 1.0, 0, 0);
 
-	const RandomFaultArgs fault_args = make_random_fault_args(flip_word, target_type, target_layers, num_layers);
+	const RandomFaultArgs fault_args = make_random_fault_args(word_size, target_type, target_layers, num_layers);
   
 	auto classification_func = make_faulty_classification_func(
 		fault_args,

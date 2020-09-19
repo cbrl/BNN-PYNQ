@@ -27,31 +27,32 @@ enum class TargetType : uint8_t {
 // target_type    - Indicates if weights, activations, or both should
 //                  be targeted for fault injection.
 //
-// flip_word      - Indicates if a word should be flipped
+// word_size      - The size of the word to flip, in bits. (Set to 1 to flip
+//                  a bit instead of a word).
 //
 // injection_func - A function which handles the actual fault injection.
-//                  arguments are (topology, target_type, flip_word, layer, bit).
+//                  arguments are (topology, target_type, word_size, layer, bit).
 //                  Layer and bit are the n-th layer and n-th bit in that layer.
 struct RandomFaultArgs {
 	RandomFaultArgs(
 		const NetworkTopology& topology,
 		std::vector<uint32_t> target_layers,
 		TargetType target_type,
-		bool flip_word,
+		uint8_t word_size,
 		std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> injection_func
 	)
 	: topology(topology)
 	, target_layers(target_layers)
 	, target_type(target_type)
-	, flip_word(flip_word)
+	, word_size(word_size)
 	, injection_func(injection_func) {
 	}
 
 	const NetworkTopology& topology;
 	std::vector<uint32_t> target_layers;
 	TargetType target_type;
-	bool flip_word;
-	std::function<void(const NetworkTopology&, TargetType, bool, uint32_t, uint32_t)> injection_func;
+	uint8_t word_size;
+	std::function<void(const NetworkTopology&, TargetType, uint8_t, uint32_t, uint32_t)> injection_func;
 };
 
 
@@ -89,7 +90,7 @@ inline void inject_random_fault(const RandomFaultArgs& args) {
         bit = std::get<1>(selection);
 	}
 
-	return args.injection_func(args.topology, target, args.flip_word, layer, bit);
+	return args.injection_func(args.topology, target, args.word_size, layer, bit);
 }
 }
 

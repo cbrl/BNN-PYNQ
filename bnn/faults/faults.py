@@ -17,7 +17,7 @@ import os
 #FaultTest.run_test() Arguments:
 #             num_runs: The number of tests to perform
 #            num_flips: The number of faults to inject per run
-#            flip_word: A boolean indicating if a bit or word should be flipped
+#            word_size: The number of adjacent bits to flip per fault. Defaults to 1.
 #        target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
 #  weight_or_threshold: An integer specifying if weights, thresholds, or both should be targeted. Obtain these values using the static methods in the TargetType class for clarity.
 #                       -1 = target weights and thresholds
@@ -44,7 +44,7 @@ class FaultTest:
 		self.input_file = input_file
 		self.labels = labels
 
-	def run_test(self, num_runs, num_flips, flip_word=False, target_type=TargetType.any(), target_layers=[]):
+	def run_test(self, num_runs, num_flips, word_size=1, target_type=TargetType.any(), target_layers=[]):
 		results    = [ None for i in range(num_runs) ]
 		times      = [ None for i in range(num_runs) ]
 		accuracies = [ None for i in range(num_runs) ]
@@ -59,17 +59,17 @@ class FaultTest:
 				num_runs,
 				num_flips,
 				' weight' if target_type == 0 else ' threshold' if target_type == 1 else '',
-				'word' if flip_word else 'bit',
+				'word' if word_size > 1 else 'bit',
 				'any layer' if len(target_layers) == 0 else 'layer(s) {}'.format(target_layers)
 			)
 			print(message)
 
 			if self.dataset == 'cifar10':
-				results[i] = classifier.classify_cifars_with_faults(self.input_file, num_flips, flip_word, target_type, target_layers).tolist()
+				results[i] = classifier.classify_cifars_with_faults(self.input_file, num_flips, word_size, target_type, target_layers).tolist()
 			elif self.dataset == 'mnist':
-				results[i] = classifier.classify_mnists_with_faults(self.input_file, num_flips, flip_word, target_type, target_layers).tolist()
+				results[i] = classifier.classify_mnists_with_faults(self.input_file, num_flips, word_size, target_type, target_layers).tolist()
 			else:
-				results[i] = classifier.classify_images_with_faults(self.input_file, num_flips, flip_word, target_type, target_layers).tolist()
+				results[i] = classifier.classify_images_with_faults(self.input_file, num_flips, word_size, target_type, target_layers).tolist()
 
 			times[i]      = classifier.usecPerImage
 			accuracies[i] = util.calculate_accuracy(results[i], self.labels)
@@ -123,9 +123,9 @@ class LFCFaultTest(FaultTest):
 #  target_layers: An array of integers specifying which layers to target. Leave empty to target all layers.
 class NetworkTest:
 	class TestType:
-		def __init__(self, target_type, flip_word):
+		def __init__(self, target_type, word_size):
 			self.target_type = target_type
-			self.flip_word = flip_word
+			self.word_size = word_size
 			self.__build_name()
 
 		def __build_name(self):
@@ -140,39 +140,38 @@ class NetworkTest:
 
 			self.name += ' '
 
-			if self.flip_word:
+			if self.word_size > 1:
 				self.name += 'word'
 			else:
 				self.name += 'bit'
 
 		@classmethod
 		def any_bit(cls):
-			return cls(FaultTest.TargetType.any(), False)
+			return cls(FaultTest.TargetType.any(), 1)
 
 		@classmethod
-		def any_word(cls):
-			return cls(FaultTest.TargetType.any(), True)
+		def any_word(cls, word_size=8):
+			return cls(FaultTest.TargetType.any(), word_size)
 
 		@classmethod
 		def weight_bit(cls):
-			return cls(FaultTest.TargetType.weights(), False)
+			return cls(FaultTest.TargetType.weights(), 1)
 
 		@classmethod
-		def weight_word(cls):
-			return cls(FaultTest.TargetType.weights(), True)
+		def weight_word(cls, word_size=8):
+			return cls(FaultTest.TargetType.weights(), word_size)
 
 		@classmethod
 		def threshold_bit(cls):
-			return cls(FaultTest.TargetType.thresholds(), False)
+			return cls(FaultTest.TargetType.thresholds(), 1)
 
 		@classmethod
-		def threshold_word(cls):
-			return cls(FaultTest.TargetType.thresholds(), True)
+		def threshold_word(cls, word_size=8):
+			return cls(FaultTest.TargetType.thresholds(), word_size)
 
 
-	def __init__(self, fault_test, output_folder):
+	def __init__(self, fault_test):
 		self.fault_test = fault_test
-		self.output_folder = output_folder + '/' + self.fault_test.network + '/' + self.fault_test.dataset + '/'
 		self.control = None
 
 	def __run_control(self):
@@ -218,7 +217,7 @@ class NetworkTest:
 		output_dicts = []
 
 		for test in test_types:
-			_, _, accuracies = self.fault_test.run_test(num_runs, num_flips, test.flip_word, test.target_type, target_layers)
+			_, _, accuracies = self.fault_test.run_test(num_runs, num_flips, test.word_size, test.target_type, target_layers)
 			output = self.__build_output_dict(test.name, num_runs, num_flips, target_layers, accuracies)
 			output_dicts.append(output)
 			util.write_dict_to_file(folder + '/temp/' + self.fault_test.network + '_results_' + test.name.replace(' ', '-') + '.json', output)
@@ -229,13 +228,15 @@ class NetworkTest:
 		return stats
 
 
-	def test_network(self, num_runs, flip_counts, test_types, target_layers=[]):
+	def test_network(self, output_folder, num_runs, flip_counts, test_types, target_layers=[]):
+		output_folder = output_folder + '/' + self.fault_test.network + '/' + self.fault_test.dataset + '/'
+
 		# Calculate the control accuracy
 		if self.control is None:
 			self.__run_control()
 
 		for num_flips in flip_counts:
-			folder = self.output_folder + '/' + str(num_flips) + 'flips/'
+			folder = output_folder + '/' + str(num_flips) + 'flips/'
 
 			# Run all tests for this flip count
 			stats = self.__run_tests(folder, num_runs, num_flips, test_types, target_layers)
